@@ -1,0 +1,3 @@
+#add the django setting.py to git ignore
+
+/milk_track_backend/settings.py
