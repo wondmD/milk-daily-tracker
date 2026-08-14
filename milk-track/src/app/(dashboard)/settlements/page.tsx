@@ -160,25 +160,55 @@ export default function SettlementsPage() {
                       {period.start_date_ethiopian} <ArrowRight className="h-3 w-3 mx-1.5" /> {period.end_date_ethiopian}
                     </p>
                     
-                    {period.supplier_summary && (
-                      <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-2 text-sm">
-                        <div className="text-muted">Total Due:</div>
-                        <div className="font-medium text-right text-foreground">{period.supplier_summary.total_due} ETB</div>
-                        
-                        <div className="text-muted">Total Paid:</div>
-                        <div className="font-medium text-right text-success">{period.supplier_summary.total_paid} ETB</div>
-                        
-                        <div className="text-muted font-bold">Remaining:</div>
-                        <div className="font-bold text-right text-danger">{period.supplier_summary.total_remaining} ETB</div>
-                        
-                        <div className="col-span-2 mt-2 bg-surface-secondary h-2 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-success h-full transition-all" 
-                            style={{ width: `${period.supplier_summary.total_due > 0 ? (period.supplier_summary.total_paid / period.supplier_summary.total_due) * 100 : 0}%` }}
-                          />
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Supplier Summary (Payables) */}
+                        <div className="bg-surface-secondary/50 rounded-xl p-3 border border-border/50">
+                          <div className="text-xs font-bold text-muted uppercase tracking-wider mb-2">Supplier Payables</div>
+                          {period.supplier_summary ? (
+                            <div className="space-y-1.5 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted">Total Due</span>
+                                <span className="font-medium text-foreground">{period.supplier_summary.total_due} ETB</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted">Paid</span>
+                                <span className="font-medium text-success">{period.supplier_summary.total_paid} ETB</span>
+                              </div>
+                              <div className="flex justify-between pt-1 border-t border-border/50">
+                                <span className="text-muted font-bold">Remaining</span>
+                                <span className="font-bold text-danger">{period.supplier_summary.total_remaining} ETB</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted italic text-center py-2">No payables</div>
+                          )}
+                        </div>
+
+                        {/* Customer Summary (Receivables) */}
+                        <div className="bg-surface-secondary/50 rounded-xl p-3 border border-border/50">
+                          <div className="text-xs font-bold text-muted uppercase tracking-wider mb-2">Customer Receivables</div>
+                          {period.customer_summary ? (
+                            <div className="space-y-1.5 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted">Total Due</span>
+                                <span className="font-medium text-foreground">{period.customer_summary.total_due} ETB</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted">Received</span>
+                                <span className="font-medium text-success">{period.customer_summary.total_paid} ETB</span>
+                              </div>
+                              <div className="flex justify-between pt-1 border-t border-border/50">
+                                <span className="text-muted font-bold">Remaining</span>
+                                <span className="font-bold text-warning">{period.customer_summary.total_remaining} ETB</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted italic text-center py-2">No receivables</div>
+                          )}
                         </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                   
                   <div className="mt-4 pt-4 border-t border-border">
@@ -259,6 +289,7 @@ export default function SettlementsPage() {
                               <tr>
                                 <th scope="col" className="py-3 pl-6 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">{t('settlements', 'supplier')}</th>
                                 <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">{t('settlements', 'totalMilk')}</th>
+                                <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">Advances</th>
                                 <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">{t('settlements', 'amountDue')}</th>
                                 <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">{t('settlements', 'status')}</th>
                                 <th scope="col" className="py-3 pl-3 pr-6 text-right text-xs font-semibold uppercase tracking-wide text-muted">Action</th>
@@ -272,6 +303,9 @@ export default function SettlementsPage() {
                                   </td>
                                   <td className="whitespace-nowrap px-3 py-4 text-sm text-foreground font-medium">
                                     {ss.total_milk_collected} L
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-4 text-sm text-danger font-medium">
+                                    {Number(ss.adjustments) > 0 ? `-${ss.adjustments} ETB` : '-'}
                                   </td>
                                   <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-foreground">
                                     {ss.remaining_balance} ETB
@@ -326,6 +360,14 @@ export default function SettlementsPage() {
                               <div className="grid grid-cols-2 gap-y-2 mt-4 text-sm">
                                 <div className="text-muted">Total Milk</div>
                                 <div className="font-medium text-foreground text-right">{ss.total_milk_collected} L</div>
+                                
+                                {Number(ss.adjustments) > 0 && (
+                                  <>
+                                    <div className="text-muted">Advances</div>
+                                    <div className="font-medium text-danger text-right">-{ss.adjustments} ETB</div>
+                                  </>
+                                )}
+
                                 <div className="text-muted font-medium">Amount Due</div>
                                 <div className="font-bold text-foreground text-right">{ss.remaining_balance} ETB</div>
                               </div>

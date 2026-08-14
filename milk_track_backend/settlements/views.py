@@ -8,6 +8,7 @@ from .models import SettlementPeriod, SupplierSettlement, CustomerSettlement
 from .serializers import SettlementPeriodSerializer, SupplierSettlementSerializer, CustomerSettlementSerializer
 from milk_collections.models import MilkCollection
 from distributions.models import MilkDelivery
+from payments.models import SupplierAdvance
 
 class SettlementPeriodViewSet(viewsets.ModelViewSet):
     queryset = SettlementPeriod.objects.all().order_by('-created_at')
@@ -39,16 +40,33 @@ class SettlementPeriodViewSet(viewsets.ModelViewSet):
         )
 
         for st in supplier_totals:
+            supplier_id = st['supplier']
+            gross = st['total_amt']
+            
+            # Find and sum pending advances for this period
+            advances = SupplierAdvance.objects.filter(
+                supplier_id=supplier_id,
+                settlement_period=period,
+                status=SupplierAdvance.Status.PENDING
+            )
+            total_advances = advances.aggregate(total=Sum('amount'))['total'] or 0
+            
+            final_amt = gross - total_advances
+            
             SupplierSettlement.objects.update_or_create(
-                supplier_id=st['supplier'],
+                supplier_id=supplier_id,
                 settlement_period=period,
                 defaults={
                     'total_milk_collected': st['total_qty'],
-                    'gross_amount': st['total_amt'],
-                    'final_amount': st['total_amt'],
-                    'remaining_balance': st['total_amt']
+                    'gross_amount': gross,
+                    'adjustments': total_advances,
+                    'final_amount': final_amt,
+                    'remaining_balance': final_amt
                 }
             )
+            
+            # Mark advances as deducted
+            advances.update(status=SupplierAdvance.Status.DEDUCTED)
 
         # Calculate Customer Settlements
         deliveries = MilkDelivery.objects.filter(

@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getSupplier, getSupplierSettlementsHistory } from '@/services/suppliers';
+import { getSupplier, getSupplierSettlementsHistory, getSupplierAdvances, SupplierAdvance } from '@/services/suppliers';
 import { getCollectionsBySupplier, MilkCollection } from '@/services/collections';
-import { ArrowLeft, User, Calendar, Droplets, ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
+import { getSettlementPeriods } from '@/services/settlements';
+import { ArrowLeft, User, Calendar, Droplets, ChevronDown, ChevronUp, Edit3, Banknote, List } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import EmptyState from '@/components/ui/EmptyState';
@@ -17,6 +18,7 @@ import Button from '@/components/ui/Button';
 export default function SupplierDetailPage() {
   const params = useParams();
   const id = Number(params.id);
+  const [activeTab, setActiveTab] = useState<'settlements' | 'advances'>('settlements');
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [paymentModalState, setPaymentModalState] = useState<{
     isOpen: boolean;
@@ -40,6 +42,16 @@ export default function SupplierDetailPage() {
   const { data: collections = [], isLoading: isLoadingCollections } = useQuery({
     queryKey: ['supplier_collections', id],
     queryFn: () => getCollectionsBySupplier(id),
+  });
+
+  const { data: advances = [], isLoading: isLoadingAdvances } = useQuery({
+    queryKey: ['supplier_advances', id],
+    queryFn: () => getSupplierAdvances(id),
+  });
+
+  const { data: allPeriods = [] } = useQuery({
+    queryKey: ['settlement-periods'],
+    queryFn: getSettlementPeriods,
   });
 
   const periods = useMemo(() => {
@@ -131,7 +143,7 @@ export default function SupplierDetailPage() {
     setExpandedPeriod(expandedPeriod === periodName ? null : periodName);
   };
 
-  const isLoading = isLoadingSupplier || isLoadingHistory || isLoadingCollections;
+  const isLoading = isLoadingSupplier || isLoadingHistory || isLoadingCollections || isLoadingAdvances;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -186,6 +198,34 @@ export default function SupplierDetailPage() {
         </div>
       ) : null}
 
+      <div className="border-b border-border">
+        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('settlements')}
+            className={`${
+              activeTab === 'settlements'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:border-border hover:text-foreground'
+            } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors flex items-center`}
+          >
+            <List className="mr-2 h-4 w-4" />
+            Settlements & Collections
+          </button>
+          <button
+            onClick={() => setActiveTab('advances')}
+            className={`${
+              activeTab === 'advances'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:border-border hover:text-foreground'
+            } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors flex items-center`}
+          >
+            <Banknote className="mr-2 h-4 w-4" />
+            Lending & Advances
+          </button>
+        </nav>
+      </div>
+
+      {activeTab === 'settlements' && (
       <div>
         <h3 className="text-lg font-bold text-foreground mb-4">Settlement Periods</h3>
         
@@ -336,6 +376,69 @@ export default function SupplierDetailPage() {
           </div>
         )}
       </div>
+      )}
+
+      {activeTab === 'advances' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-foreground">Lending History</h3>
+          </div>
+
+          {isLoadingAdvances ? (
+            <div className="space-y-4">
+              <SkeletonCard />
+            </div>
+          ) : advances.length === 0 ? (
+            <EmptyState 
+              icon={<Banknote />}
+              title="No lending records"
+              description="This supplier has no recorded advances."
+            />
+          ) : (
+            <div className="bg-surface rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-surface-secondary">
+                    <tr>
+                      <th scope="col" className="py-3.5 pl-6 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">Date</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">Amount</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">Period</th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-surface">
+                    {advances.map((advance) => {
+                      const period = allPeriods.find(p => p.id === advance.settlement_period);
+                      const periodName = period ? `M${period.ethiopian_month} P${period.period_number}` : 'N/A';
+                      
+                      return (
+                        <tr key={advance.id} className="hover:bg-surface-secondary/50 transition-colors">
+                          <td className="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-medium text-foreground">
+                            {advance.ethiopian_date}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-danger">
+                            -{advance.amount} ETB
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-muted font-medium">
+                            {periodName}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              advance.status === 'DEDUCTED' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'
+                            }`}>
+                              {advance.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <PaymentModal
         isOpen={paymentModalState.isOpen}

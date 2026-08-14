@@ -62,6 +62,47 @@ class SettlementPeriod(models.Model):
         )
         return period
 
+    @classmethod
+    def get_period_for_ethiopian_date(cls, date_str):
+        # Parses a string like "Meskerem 5, 2017" or "Meskerem 5, 2017"
+        months = ['Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit', 
+                  'Megabit', 'Miyazia', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume']
+        try:
+            parts = date_str.replace(',', '').split()
+            if len(parts) >= 3:
+                month_name = parts[0]
+                day = int(parts[1])
+                year = int(parts[2])
+                
+                month = months.index(month_name) + 1
+                period_number = 1 if day <= 15 else 2
+                
+                if month == 13:
+                    period_number = 1
+                    start_date = f"{month_name} 1, {year}"
+                    end_date = f"{month_name} 6, {year}"
+                else:
+                    if period_number == 1:
+                        start_date = f"{month_name} 1, {year}"
+                        end_date = f"{month_name} 15, {year}"
+                    else:
+                        start_date = f"{month_name} 16, {year}"
+                        end_date = f"{month_name} 30, {year}"
+                        
+                period, _ = cls.objects.get_or_create(
+                    ethiopian_year=year,
+                    ethiopian_month=month,
+                    period_number=period_number,
+                    defaults={
+                        'start_date_ethiopian': start_date,
+                        'end_date_ethiopian': end_date
+                    }
+                )
+                return period
+        except Exception as e:
+            print(f"Error parsing date {date_str}: {e}")
+        return None
+
 class SupplierSettlement(models.Model):
     class PaymentStatus(models.TextChoices):
         UNPAID = 'UNPAID', 'Unpaid'

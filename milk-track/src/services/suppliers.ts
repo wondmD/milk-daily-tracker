@@ -66,3 +66,18 @@ export const getSupplier = async (id: number): Promise<Supplier> => {
 export const getSupplierSettlementsHistory = async (id: number): Promise<SupplierSettlementHistory[]> => {
   return fetchApi(`/suppliers/${id}/settlements_history/`);
 };
+
+export interface SupplierAdvance {
+  id: number;
+  supplier: number;
+  amount: number | string;
+  ethiopian_date: string;
+  status: string;
+  settlement_period?: number;
+  notes?: string;
+  created_at?: string;
+}
+
+export const getSupplierAdvances = async (supplierId: number): Promise<SupplierAdvance[]> => {
+  return fetchApi(`/supplier-advances/?supplier=${supplierId}`);
+};

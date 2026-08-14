@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from .models import Payment, SupplierAdvance
 from .serializers import PaymentSerializer, SupplierAdvanceSerializer
-from settlements.models import SupplierSettlement, CustomerSettlement
+from settlements.models import SupplierSettlement, CustomerSettlement, SettlementPeriod
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().order_by('-created_at')
@@ -45,4 +45,10 @@ class SupplierAdvanceViewSet(viewsets.ModelViewSet):
     filterset_fields = ['supplier', 'status', 'settlement_period']
 
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        advance = serializer.save(recorded_by=self.request.user)
+        
+        # Link to a settlement period automatically based on date
+        period = SettlementPeriod.get_period_for_ethiopian_date(advance.ethiopian_date)
+        if period:
+            advance.settlement_period = period
+            advance.save()

@@ -22,6 +22,31 @@ class MilkDeliveryViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
+        data = serializer.validated_data
+        eth_year = data.get('ethiopian_year')
+        eth_month = data.get('ethiopian_month')
+        eth_day = data.get('ethiopian_day')
+        del_qty = data.get('delivered_quantity', 0)
+
+        # Validate delivery <= collected + 10
+        from django.db.models import Sum
+        from milk_collections.models import MilkCollection
+        
+        total_collected = MilkCollection.objects.filter(
+            ethiopian_year=eth_year,
+            ethiopian_month=eth_month,
+            ethiopian_day=eth_day
+        ).aggregate(total=Sum('total_quantity'))['total'] or 0
+        
+        total_delivered_already = MilkDelivery.objects.filter(
+            ethiopian_year=eth_year,
+            ethiopian_month=eth_month,
+            ethiopian_day=eth_day
+        ).aggregate(total=Sum('delivered_quantity'))['total'] or 0
+        
+        if total_delivered_already + del_qty > total_collected + 10:
+            raise ValidationError({"delivered_quantity": f"Cannot distribute {del_qty} L. Total distributed ({total_delivered_already + del_qty} L) exceeds total collected ({total_collected} L) by more than 10 L limit."})
+
         delivery = serializer.save(distribution_worker=self.request.user)
         
         # Log to ledger (negative because milk goes out)
@@ -70,6 +95,32 @@ class MilkDeliveryViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"admin_password": "Password is required to edit past records."})
             if not self.request.user.check_password(admin_password):
                 raise ValidationError({"admin_password": "Invalid password."})
+
+        new_del_qty = serializer.validated_data.get('delivered_quantity', old_instance.delivered_quantity)
+        if new_del_qty > old_instance.delivered_quantity:
+            from django.db.models import Sum
+            from milk_collections.models import MilkCollection
+            
+            eth_year = old_instance.ethiopian_year
+            eth_month = old_instance.ethiopian_month
+            eth_day = old_instance.ethiopian_day
+            
+            total_collected = MilkCollection.objects.filter(
+                ethiopian_year=eth_year,
+                ethiopian_month=eth_month,
+                ethiopian_day=eth_day
+            ).aggregate(total=Sum('total_quantity'))['total'] or 0
+            
+            total_delivered_already = MilkDelivery.objects.filter(
+                ethiopian_year=eth_year,
+                ethiopian_month=eth_month,
+                ethiopian_day=eth_day
+            ).aggregate(total=Sum('delivered_quantity'))['total'] or 0
+            
+            new_total_delivered = total_delivered_already - old_instance.delivered_quantity + new_del_qty
+            
+            if new_total_delivered > total_collected + 10:
+                raise ValidationError({"delivered_quantity": f"Cannot increase to {new_del_qty} L. Total distributed ({new_total_delivered} L) exceeds total collected ({total_collected} L) by more than 10 L limit."})
 
         old_del = old_instance.delivered_quantity
         old_ret = old_instance.returned_quantity
