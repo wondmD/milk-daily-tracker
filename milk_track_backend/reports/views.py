@@ -85,3 +85,29 @@ class DashboardSummaryView(APIView):
             'total_expenses': float(total_expenses),
             'net_margin': float(net_margin)
         })
+
+class TopSuppliersView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        limit = int(request.query_params.get('limit', 5))
+        
+        # We can look at the current month's collections
+        today = datetime.date.today()
+        d = EthiopianDateConverter.date_to_ethiopian(today)
+        
+        collections = MilkCollection.objects.filter(
+            ethiopian_year=d.year,
+            ethiopian_month=d.month
+        ).values('supplier__name').annotate(
+            total_volume=Sum('total_quantity')
+        ).order_by('-total_volume')[:limit]
+        
+        results = [
+            {
+                'name': c['supplier__name'],
+                'volume': float(c['total_volume'])
+            } for c in collections
+        ]
+        
+        return Response(results)

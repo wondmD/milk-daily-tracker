@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Arkani",
   description: "Complete Milk Collection, Distribution, Processing, and Financial Management System",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Arkani",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

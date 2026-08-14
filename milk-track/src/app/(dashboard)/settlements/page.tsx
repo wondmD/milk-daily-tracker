@@ -15,6 +15,10 @@ import { SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton';
 import SettlementModal from '@/components/features/settlements/SettlementModal';
 import PaymentModal from '@/components/features/payments/PaymentModal';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
+import { ReceiptTemplate } from '@/components/features/settlements/ReceiptTemplate';
+import { Printer } from 'lucide-react';
 
 export default function SettlementsPage() {
   const queryClient = useQueryClient();
@@ -28,6 +32,19 @@ export default function SettlementsPage() {
     settlementId?: number;
     maxAmount?: number;
   }>({ isOpen: false });
+
+  const [receiptData, setReceiptData] = useState<any>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: receiptRef,
+  });
+
+  const printReceipt = (data: any) => {
+    setReceiptData(data);
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
+  };
   
   const { data: periods = [], isLoading: loadingPeriods, isError: errorPeriods } = useQuery({
     queryKey: ['settlement-periods'],
@@ -320,21 +337,41 @@ export default function SettlementsPage() {
                                     </span>
                                   </td>
                                   <td className="whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm">
-                                    {ss.payment_status !== 'PAID' && ss.remaining_balance > 0 ? (
-                                      <Button 
-                                        size="sm" 
-                                        onClick={() => setPaymentModalState({
-                                          isOpen: true,
-                                          supplierId: ss.supplier,
-                                          settlementId: ss.id,
-                                          maxAmount: Number(ss.remaining_balance)
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => printReceipt({
+                                          period: group.period,
+                                          entityName: ss.supplier_details?.name,
+                                          entityType: 'SUPPLIER',
+                                          totalMilk: ss.total_milk_collected,
+                                          grossAmount: ss.gross_amount,
+                                          adjustments: ss.adjustments,
+                                          finalAmount: ss.final_amount,
+                                          amountPaid: ss.amount_paid,
+                                          remainingBalance: ss.remaining_balance
                                         })}
+                                        title="Print Receipt"
                                       >
-                                        Pay
+                                        <Printer className="h-4 w-4" />
                                       </Button>
-                                    ) : (
-                                      <span className="text-muted text-xs italic">Settled</span>
-                                    )}
+                                      {ss.payment_status !== 'PAID' && ss.remaining_balance > 0 ? (
+                                        <Button 
+                                          size="sm" 
+                                          onClick={() => setPaymentModalState({
+                                            isOpen: true,
+                                            supplierId: ss.supplier,
+                                            settlementId: ss.id,
+                                            maxAmount: Number(ss.remaining_balance)
+                                          })}
+                                        >
+                                          Pay
+                                        </Button>
+                                      ) : (
+                                        <span className="text-muted text-xs italic self-center">Settled</span>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -511,6 +548,14 @@ export default function SettlementsPage() {
           settlementId={paymentModalState.settlementId}
           type="PAYMENT"
           maxAmount={paymentModalState.maxAmount}
+        />
+      )}
+
+      {/* Hidden Receipt for Printing */}
+      {receiptData && (
+        <ReceiptTemplate
+          ref={receiptRef}
+          {...receiptData}
         />
       )}
     </div>

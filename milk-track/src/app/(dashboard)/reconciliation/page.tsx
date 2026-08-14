@@ -17,10 +17,14 @@ import {
 } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useState } from 'react';
+import WastageModal from '@/components/features/inventory/WastageModal';
 
 export default function ReconciliationPage() {
+  const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
   const now = EthDateTime.now();
   const { t } = useTranslation();
 
@@ -35,10 +39,20 @@ export default function ReconciliationPage() {
         title={t('reconciliation', 'title')}
         subtitle={t('reconciliation', 'subtitle')}
         actions={
-          <div className="flex items-center space-x-3 bg-surface px-4 py-2 rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border">
-            <button onClick={() => refetch()} className="text-muted hover:text-primary transition-colors p-1 rounded-[10px] hover:bg-primary-light/10">
-              <RefreshCw className="h-4 w-4" />
-            </button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setIsWastageModalOpen(true)}
+              leftIcon={<Trash2 className="h-4 w-4" />}
+            >
+              Log Wastage
+            </Button>
+            <div className="flex items-center bg-surface px-4 py-2 rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border">
+              <button onClick={() => refetch()} className="text-muted hover:text-primary transition-colors p-1 rounded-[10px] hover:bg-primary-light/10">
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         }
       />
@@ -173,6 +187,13 @@ export default function ReconciliationPage() {
             </div>
           </div>
         </>
+      )}
+
+      {isWastageModalOpen && (
+        <WastageModal 
+          isOpen={isWastageModalOpen} 
+          onClose={() => setIsWastageModalOpen(false)} 
+        />
       )}
     </div>
   );

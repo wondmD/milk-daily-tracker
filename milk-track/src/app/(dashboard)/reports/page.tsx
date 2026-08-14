@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText, Download, TrendingUp, TrendingDown, Activity, Calendar } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
-import { getDashboardSummary } from '@/services/reports';
+import { getDashboardSummary, getTrendSummary, getTopSuppliers } from '@/services/reports';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 import { useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -20,6 +21,16 @@ export default function ReportsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-summary', selectedYear, selectedMonth],
     queryFn: () => getDashboardSummary(selectedYear, selectedMonth),
+  });
+
+  const { data: trendData = [], isLoading: trendLoading } = useQuery({
+    queryKey: ['trend-summary', 14],
+    queryFn: () => getTrendSummary(14),
+  });
+
+  const { data: suppliersData = [], isLoading: suppliersLoading } = useQuery({
+    queryKey: ['top-suppliers', 5],
+    queryFn: () => getTopSuppliers(5),
   });
 
   const ethMonths = [
@@ -107,11 +118,96 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <EmptyState
-        icon={<FileText />}
-        title={t('reports', 'advancedReportingUnderConstruction')}
-        description={t('reports', 'advancedReportingDesc')}
-      />
+      {/* Analytics Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* 14-Day Trend Chart */}
+        <div className="bg-surface rounded-[20px] border border-border p-6 shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
+          <h3 className="text-lg font-bold text-foreground mb-6">{t('reports', 'collectionVsDelivery')}</h3>
+          {trendLoading ? (
+            <div className="h-72"><SkeletonCard /></div>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted))" 
+                    tick={{ fill: 'hsl(var(--muted))', fontSize: 12 }} 
+                    tickFormatter={(val) => {
+                      const parts = val.split('-');
+                      return `${parts[2]}/${parts[1]}`; // DD/MM
+                    }}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted))" 
+                    tick={{ fill: 'hsl(var(--muted))', fontSize: 12 }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--surface))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }}
+                    itemStyle={{ fontWeight: 600 }}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                  <Line 
+                    type="monotone" 
+                    name="Collected (L)"
+                    dataKey="collected" 
+                    stroke="hsl(var(--info))" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: 'hsl(var(--info))' }}
+                    activeDot={{ r: 6 }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    name="Delivered (L)"
+                    dataKey="delivered" 
+                    stroke="hsl(var(--success))" 
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: 'hsl(var(--success))' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Top Suppliers Chart */}
+        <div className="bg-surface rounded-[20px] border border-border p-6 shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
+          <h3 className="text-lg font-bold text-foreground mb-6">{t('reports', 'topSuppliers')}</h3>
+          {suppliersLoading ? (
+            <div className="h-72"><SkeletonCard /></div>
+          ) : suppliersData.length === 0 ? (
+            <EmptyState icon={<FileText />} title="No supplier data" description="Start collecting milk to see insights here." />
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={suppliersData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={true} vertical={false} />
+                  <XAxis type="number" stroke="hsl(var(--muted))" tick={{ fill: 'hsl(var(--muted))', fontSize: 12 }} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    stroke="hsl(var(--muted))" 
+                    tick={{ fill: 'hsl(var(--muted))', fontSize: 12 }}
+                    width={100}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--surface))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }}
+                    cursor={{ fill: 'hsl(var(--surface-secondary))' }}
+                  />
+                  <Bar 
+                    name="Total Volume (L)"
+                    dataKey="volume" 
+                    fill="hsl(var(--primary))" 
+                    radius={[0, 4, 4, 0]} 
+                    barSize={32}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

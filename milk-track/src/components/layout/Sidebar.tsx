@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -31,38 +31,60 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { t } = useTranslation();
 
-  const navGroups = [
+  const { data: session } = useSession();
+  const role = (session?.user as any)?.role || 'ADMIN';
+
+  const navGroups: {
+    title: string;
+    allowedRoles: string[];
+    items: {
+      name: string;
+      href: string;
+      icon: any;
+      roles?: string[];
+    }[];
+  }[] = [
     {
       title: 'Dashboard',
+      allowedRoles: ['ADMIN', 'ACCOUNTANT'],
       items: [
         { name: t('sidebar', 'dashboard'), href: '/', icon: LayoutDashboard },
       ]
     },
     {
       title: 'Operations',
+      allowedRoles: ['ADMIN', 'COLLECTION_WORKER', 'DISTRIBUTION_WORKER', 'ACCOUNTANT'],
       items: [
-        { name: t('sidebar', 'collections'), href: '/collections', icon: Droplets },
-        { name: t('sidebar', 'distributions'), href: '/distributions', icon: Truck },
-        { name: t('sidebar', 'reconciliation'), href: '/reconciliation', icon: ArchiveRestore },
-        { name: t('sidebar', 'processing'), href: '/processing', icon: Factory },
+        { name: t('sidebar', 'collections'), href: '/collections', icon: Droplets, roles: ['ADMIN', 'COLLECTION_WORKER'] },
+        { name: t('sidebar', 'distributions'), href: '/distributions', icon: Truck, roles: ['ADMIN', 'DISTRIBUTION_WORKER'] },
+        { name: t('sidebar', 'reconciliation'), href: '/reconciliation', icon: ArchiveRestore, roles: ['ADMIN', 'ACCOUNTANT'] },
+        { name: t('sidebar', 'processing'), href: '/processing', icon: Factory, roles: ['ADMIN', 'ACCOUNTANT'] },
       ]
     },
     {
       title: 'Business',
+      allowedRoles: ['ADMIN', 'ACCOUNTANT'],
       items: [
-        { name: t('sidebar', 'suppliers'), href: '/suppliers', icon: Users },
-        { name: t('sidebar', 'customers'), href: '/customers', icon: Building2 },
-        { name: t('sidebar', 'settlements'), href: '/settlements', icon: Wallet },
-        { name: t('sidebar', 'expenses'), href: '/expenses', icon: Receipt },
+        { name: t('sidebar', 'suppliers'), href: '/suppliers', icon: Users, roles: ['ADMIN', 'ACCOUNTANT'] },
+        { name: t('sidebar', 'customers'), href: '/customers', icon: Building2, roles: ['ADMIN', 'ACCOUNTANT'] },
+        { name: t('sidebar', 'settlements'), href: '/settlements', icon: Wallet, roles: ['ADMIN', 'ACCOUNTANT'] },
+        { name: t('sidebar', 'expenses'), href: '/expenses', icon: Receipt, roles: ['ADMIN', 'ACCOUNTANT'] },
       ]
     },
     {
       title: 'Analytics',
+      allowedRoles: ['ADMIN', 'ACCOUNTANT'],
       items: [
-        { name: t('sidebar', 'reports'), href: '/reports', icon: FileText },
+        { name: t('sidebar', 'reports'), href: '/reports', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
       ]
     }
   ];
+
+  // Filter groups and items based on role
+  const filteredNavGroups = navGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => !item.roles || item.roles.includes(role))
+  })).filter(group => group.items.length > 0 && (group.allowedRoles.includes(role) || role === 'ADMIN'));
 
   return (
     <div className="flex h-full w-64 flex-col bg-primary border-r border-primary-hover z-30 flex-shrink-0 shadow-sm text-primary-light">
@@ -88,7 +110,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
       
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="space-y-6 px-3">
-          {navGroups.map((group) => (
+          {filteredNavGroups.map((group) => (
             <div key={group.title}>
               <div className="px-3 text-xs font-bold text-primary-light/50 uppercase tracking-wider mb-2">
                 {group.title}
@@ -125,10 +147,12 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
       </div>
       
       <div className="border-t border-primary-hover p-4 bg-primary/50">
-        <Link href="/settings" className="flex w-full items-center rounded-md px-3 py-2 text-sm font-semibold text-primary-light hover:bg-primary-hover hover:text-white transition-colors">
-          <Settings className="mr-3 h-5 w-5 text-primary-light/80" />
-          {t('sidebar', 'settings')}
-        </Link>
+        {role === 'ADMIN' && (
+          <Link href="/settings" className="flex w-full items-center rounded-md px-3 py-2 text-sm font-semibold text-primary-light hover:bg-primary-hover hover:text-white transition-colors">
+            <Settings className="mr-3 h-5 w-5 text-primary-light/80" />
+            {t('sidebar', 'settings')}
+          </Link>
+        )}
         <button 
           onClick={() => signOut()}
           className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm font-semibold text-primary-light hover:bg-danger-subtle hover:text-danger transition-colors"

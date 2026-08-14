@@ -86,3 +86,38 @@ class MilkCollectionViewSet(viewsets.ModelViewSet):
                 notes=f"Adjustment for collection update",
                 recorded_by=self.request.user
             )
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        # Check if this is a past record
+        today = datetime.date.today()
+        eth_today = EthiopianDateConverter.date_to_ethiopian(today)
+        is_past_record = (
+            instance.ethiopian_year != eth_today.year or 
+            instance.ethiopian_month != eth_today.month or 
+            instance.ethiopian_day != eth_today.day
+        )
+        
+        if is_past_record:
+            # Need to get password from request. Query params for DELETE or body?
+            # DRF doesn't typically send body for DELETE, but it can. We'll check query_params and data.
+            admin_password = self.request.data.get('admin_password') or self.request.query_params.get('admin_password')
+            if not admin_password:
+                raise ValidationError({"admin_password": "Password is required to delete past records."})
+            if not self.request.user.check_password(admin_password):
+                raise ValidationError({"admin_password": "Invalid password."})
+
+        # Revert ledger
+        MilkLedgerTransaction.objects.create(
+            ethiopian_date=instance.ethiopian_date,
+            ethiopian_year=instance.ethiopian_year,
+            ethiopian_month=instance.ethiopian_month,
+            ethiopian_day=instance.ethiopian_day,
+            transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
+            quantity=-instance.total_quantity, # negative because we are removing milk that was previously collected
+            reference_id=f"COL-DEL-{instance.id}",
+            notes=f"Reversal due to collection deletion",
+            recorded_by=self.request.user
+        )
+        
+        instance.delete()

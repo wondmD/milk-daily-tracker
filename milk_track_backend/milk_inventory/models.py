@@ -29,3 +29,25 @@ class MilkLedgerTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transaction_type}: {self.quantity}L on {self.ethiopian_date}"
+
+class MilkWastage(models.Model):
+    class ReasonChoices(models.TextChoices):
+        SPOILED = 'SPOILED', 'Spoiled/Sour'
+        SPILLED = 'SPILLED', 'Spilled/Leaked'
+        CONTAMINATED = 'CONTAMINATED', 'Contaminated'
+        OTHER = 'OTHER', 'Other'
+
+    ethiopian_date = models.CharField(max_length=20)
+    ethiopian_year = models.IntegerField()
+    ethiopian_month = models.IntegerField()
+    ethiopian_day = models.IntegerField()
+    
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, help_text="Amount of milk wasted in liters")
+    reason = models.CharField(max_length=20, choices=ReasonChoices.choices)
+    notes = models.TextField(blank=True, null=True)
+    
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.quantity}L Wasted on {self.ethiopian_date} - {self.get_reason_display()}"

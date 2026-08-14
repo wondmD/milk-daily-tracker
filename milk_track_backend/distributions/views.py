@@ -158,6 +158,52 @@ class MilkDeliveryViewSet(viewsets.ModelViewSet):
                 recorded_by=self.request.user
             )
 
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        # Check if this is a past record
+        today = datetime.date.today()
+        eth_today = EthiopianDateConverter.date_to_ethiopian(today)
+        is_past_record = (
+            instance.ethiopian_year != eth_today.year or 
+            instance.ethiopian_month != eth_today.month or 
+            instance.ethiopian_day != eth_today.day
+        )
+        
+        if is_past_record:
+            admin_password = self.request.data.get('admin_password') or self.request.query_params.get('admin_password')
+            if not admin_password:
+                raise ValidationError({"admin_password": "Password is required to delete past records."})
+            if not self.request.user.check_password(admin_password):
+                raise ValidationError({"admin_password": "Invalid password."})
+
+        # Revert ledger
+        MilkLedgerTransaction.objects.create(
+            ethiopian_date=instance.ethiopian_date,
+            ethiopian_year=instance.ethiopian_year,
+            ethiopian_month=instance.ethiopian_month,
+            ethiopian_day=instance.ethiopian_day,
+            transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
+            quantity=instance.delivered_quantity, # positive because we are removing a delivery
+            reference_id=f"DEL-DEL-{instance.id}",
+            notes=f"Reversal due to delivery deletion",
+            recorded_by=self.request.user
+        )
+        
+        if instance.returned_quantity > 0:
+            MilkLedgerTransaction.objects.create(
+                ethiopian_date=instance.ethiopian_date,
+                ethiopian_year=instance.ethiopian_year,
+                ethiopian_month=instance.ethiopian_month,
+                ethiopian_day=instance.ethiopian_day,
+                transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
+                quantity=-instance.returned_quantity, # negative because we are removing a return
+                reference_id=f"DEL-RET-DEL-{instance.id}",
+                notes=f"Reversal due to delivery (return part) deletion",
+                recorded_by=self.request.user
+            )
+            
+        instance.delete()
+
 class MilkReturnViewSet(viewsets.ModelViewSet):
     queryset = MilkReturn.objects.all().order_by('-created_at')
     serializer_class = MilkReturnSerializer
@@ -179,3 +225,19 @@ class MilkReturnViewSet(viewsets.ModelViewSet):
             notes=f"Isolated return from {milk_return.customer.business_name}. Reason: {milk_return.reason}",
             recorded_by=self.request.user
         )
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        # Revert ledger
+        MilkLedgerTransaction.objects.create(
+            ethiopian_date=instance.ethiopian_date,
+            ethiopian_year=instance.ethiopian_year,
+            ethiopian_month=instance.ethiopian_month,
+            ethiopian_day=instance.ethiopian_day,
+            transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
+            quantity=-instance.quantity, # negative because we are removing a return
+            reference_id=f"RET-DEL-{instance.id}",
+            notes=f"Reversal due to isolated return deletion",
+            recorded_by=self.request.user
+        )
+        instance.delete()

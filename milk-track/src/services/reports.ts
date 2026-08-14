@@ -29,3 +29,12 @@ export interface TrendSummary {
 export const getTrendSummary = async (days: number = 14): Promise<TrendSummary[]> => {
   return fetchApi(`/reports/trend-summary/?days=${days}`);
 };
+
+export interface TopSupplier {
+  name: string;
+  volume: number;
+}
+
+export const getTopSuppliers = async (limit: number = 5): Promise<TopSupplier[]> => {
+  return fetchApi(`/reports/top-suppliers/?limit=${limit}`);
+};

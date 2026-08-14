@@ -24,13 +24,28 @@ export const authOptions: NextAuthOptions = {
           const data = await res.json();
 
           if (res.ok && data.access) {
-            // We can optionally decode the JWT here to get the role if needed,
-            // but for now we just store the token
+            // Decode the JWT to get the role
+            let role = 'ADMIN';
+            try {
+              const base64Url = data.access.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+              const payload = JSON.parse(jsonPayload);
+              if (payload.role) {
+                role = payload.role;
+              }
+            } catch (e) {
+              console.error("Failed to decode token", e);
+            }
+
             return {
               id: "1", // NextAuth requires an id
               name: credentials.username,
               accessToken: data.access,
               refreshToken: data.refresh,
+              role: role,
             };
           }
           return null;
@@ -46,11 +61,15 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.accessToken = (user as any).accessToken;
         token.refreshToken = (user as any).refreshToken;
+        token.role = (user as any).role;
       }
       return token;
     },
     async session({ session, token }) {
       (session as any).accessToken = token.accessToken;
+      if (session.user) {
+        (session.user as any).role = token.role;
+      }
       return session;
     }
   },

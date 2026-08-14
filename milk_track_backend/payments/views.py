@@ -38,6 +38,47 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     settlement.payment_status = SupplierSettlement.PaymentStatus.PARTIALLY_PAID
                 settlement.save()
 
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        if instance.related_settlement_id:
+            if instance.payment_type == Payment.PaymentType.CUSTOMER_PAYMENT:
+                try:
+                    settlement = CustomerSettlement.objects.get(id=instance.related_settlement_id)
+                    settlement.amount_paid -= instance.amount
+                    settlement.remaining_balance = settlement.final_amount - settlement.amount_paid
+                    
+                    if settlement.amount_paid <= 0:
+                        settlement.amount_paid = 0
+                        settlement.payment_status = CustomerSettlement.PaymentStatus.UNPAID
+                    elif settlement.remaining_balance <= 0:
+                        settlement.payment_status = CustomerSettlement.PaymentStatus.PAID
+                    else:
+                        settlement.payment_status = CustomerSettlement.PaymentStatus.PARTIALLY_PAID
+                    
+                    settlement.save()
+                except CustomerSettlement.DoesNotExist:
+                    pass
+                    
+            elif instance.payment_type == Payment.PaymentType.SUPPLIER_PAYMENT:
+                try:
+                    settlement = SupplierSettlement.objects.get(id=instance.related_settlement_id)
+                    settlement.amount_paid -= instance.amount
+                    settlement.remaining_balance = settlement.final_amount - settlement.amount_paid
+                    
+                    if settlement.amount_paid <= 0:
+                        settlement.amount_paid = 0
+                        settlement.payment_status = SupplierSettlement.PaymentStatus.UNPAID
+                    elif settlement.remaining_balance <= 0:
+                        settlement.payment_status = SupplierSettlement.PaymentStatus.PAID
+                    else:
+                        settlement.payment_status = SupplierSettlement.PaymentStatus.PARTIALLY_PAID
+                        
+                    settlement.save()
+                except SupplierSettlement.DoesNotExist:
+                    pass
+                    
+        instance.delete()
+
 class SupplierAdvanceViewSet(viewsets.ModelViewSet):
     queryset = SupplierAdvance.objects.all().order_by('-created_at')
     serializer_class = SupplierAdvanceSerializer

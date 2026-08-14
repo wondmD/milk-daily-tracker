@@ -3,8 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Sum
-from .models import MilkLedgerTransaction
-from .serializers import MilkLedgerTransactionSerializer
+from django.db import transaction
+from .models import MilkLedgerTransaction, MilkWastage
+from .serializers import MilkLedgerTransactionSerializer, MilkWastageSerializer
 
 class MilkLedgerTransactionViewSet(viewsets.ModelViewSet):
     queryset = MilkLedgerTransaction.objects.all().order_by('-created_at')
@@ -60,3 +61,41 @@ class DailyReconciliationView(APIView):
             'net_balance': net_balance, # 0 means fully reconciled
             'is_reconciled': net_balance == 0
         })
+
+class MilkWastageViewSet(viewsets.ModelViewSet):
+    queryset = MilkWastage.objects.all().order_by('-created_at')
+    serializer_class = MilkWastageSerializer
+    permission_classes = [IsAuthenticated]
+    
+    @transaction.atomic
+    def perform_create(self, serializer):
+        wastage = serializer.save(recorded_by=self.request.user)
+        
+        # Log to ledger (negative because milk is lost)
+        MilkLedgerTransaction.objects.create(
+            ethiopian_date=wastage.ethiopian_date,
+            ethiopian_year=wastage.ethiopian_year,
+            ethiopian_month=wastage.ethiopian_month,
+            ethiopian_day=wastage.ethiopian_day,
+            transaction_type=MilkLedgerTransaction.TransactionType.WASTE,
+            quantity=-wastage.quantity,
+            reference_id=f"WST-{wastage.id}",
+            notes=f"Wastage: {wastage.get_reason_display()}",
+            recorded_by=self.request.user
+        )
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        # Revert ledger
+        MilkLedgerTransaction.objects.create(
+            ethiopian_date=instance.ethiopian_date,
+            ethiopian_year=instance.ethiopian_year,
+            ethiopian_month=instance.ethiopian_month,
+            ethiopian_day=instance.ethiopian_day,
+            transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
+            quantity=instance.quantity, # positive because we are removing a waste entry
+            reference_id=f"WST-DEL-{instance.id}",
+            notes=f"Reversal due to wastage deletion",
+            recorded_by=self.request.user
+        )
+        instance.delete()
