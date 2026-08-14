@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-foreground: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-border: var(--border);
+  
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Semantic Enterprise Colors */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
+}
+
+:root {
+  /* Core Backgrounds */
+  --background: #F7F6F1; /* Warm Cream */
+  --surface: #FFFFFF;
+  --surface-secondary: #EFEFE8;
+
+  /* Typography */
+  --text-primary: #1C2521;
+  --text-secondary: #68716C;
+
+  /* Borders */
+  --border: #E2E3DC;
+
+  /* Primary Brand (Deep Forest) */
+  --primary: #183D32;
+  --primary-hover: #123128;
+  --primary-light: #B7E4D3; /* Fresh Mint */
+
+  /* Semantic State Colors */
+  --success: #2F7D5C;
+  --success-subtle: #E7F3ED; /* Very soft mint/green */
+  
+  --warning: #C98A2E;
+  --warning-subtle: #FDF3E3; /* Soft amber */
+  
+  --danger: #B65345;
+  --danger-subtle: #FDF0EE; /* Soft terracotta */
+  
+  --info: #4C7185;
+  --info-subtle: #EEF4F7; /* Soft slate/blue */
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base element resets for the new design system */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+}
+
+p {
+  color: var(--text-secondary);
+}
