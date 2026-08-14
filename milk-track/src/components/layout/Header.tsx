@@ -10,7 +10,7 @@ import LanguageSwitcher from '../ui/LanguageSwitcher';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatEthiopianDate } from '@/lib/dateFormatter';
 
-export default function Header() {
+export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { data: session } = useSession();
   const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
 
@@ -25,7 +25,11 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-20 flex h-16 flex-shrink-0 items-center gap-x-4 border-b border-border bg-surface px-4 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] sm:gap-x-6 sm:px-6 lg:px-8">
-        <button type="button" className="-m-2.5 p-2.5 text-muted md:hidden hover:bg-surface-secondary rounded-md">
+        <button 
+          type="button" 
+          className="-m-2.5 p-2.5 text-muted md:hidden hover:bg-surface-secondary rounded-md"
+          onClick={onMenuClick}
+        >
           <span className="sr-only">Open sidebar</span>
           <Menu className="h-6 w-6" aria-hidden="true" />
         </button>
