@@ -16,7 +16,8 @@ import {
   Receipt,
   Milk,
   Building2,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,7 +27,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { t } = useTranslation();
 
@@ -65,7 +66,7 @@ export default function Sidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col bg-primary border-r border-primary-hover z-30 flex-shrink-0 shadow-sm text-primary-light">
-      <div className="flex h-16 items-center px-6 border-b border-primary-hover">
+      <div className="flex h-16 items-center justify-between px-6 border-b border-primary-hover">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 bg-primary-light rounded-lg flex items-center justify-center shadow-sm">
             <Milk className="h-5 w-5 text-primary" />
@@ -74,6 +75,15 @@ export default function Sidebar() {
             Arkani
           </h1>
         </div>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="md:hidden text-primary-light hover:text-white p-1.5 -mr-2 rounded-md hover:bg-primary-hover transition-colors"
+          >
+            <span className="sr-only">Close sidebar</span>
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
       
       <div className="flex-1 overflow-y-auto py-4">

@@ -22,17 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="fixed inset-0 bg-black/50 transition-opacity backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <div className="relative flex w-64 max-w-sm flex-1 flex-col shadow-xl">
-            <div className="absolute top-0 right-0 -mr-12 pt-4">
-              <button
-                type="button"
-                className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white bg-black/20"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <span className="sr-only">Close sidebar</span>
-                <X className="h-6 w-6 text-white" aria-hidden="true" />
-              </button>
-            </div>
-            <Sidebar />
+            <Sidebar onClose={() => setSidebarOpen(false)} />
           </div>
         </div>
       )}
