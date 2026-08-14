@@ -25,7 +25,14 @@ SECRET_KEY = 'django-insecure-_170_a!-igon7df_-^nz3yuv=&tl&%ta-zub1pnp#-edkuqj^y
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['milk-api.ethioace.com','www.milk-api.ethioace.com']
+CSRF_TRUSTED_ORIGINS = [
+    "https://milk-api.ethioace.com",
+    "https://www.milk-api.ethioace.com",
+    'https://wetet.vercel.app',
+    'https://www.wetet.vercel.app',
+    'http://localhost:3000'
+]
 
 
 # Application definition
@@ -154,8 +161,11 @@ SIMPLE_JWT = {
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = Path("/home/ethioadv/milk-api.ethioace.com/static")
 
+MEDIA_URL = "/media/"
+MEDIA_ROOT = Path("/home/ethioadv/milk-api.ethioace.com/media")
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
