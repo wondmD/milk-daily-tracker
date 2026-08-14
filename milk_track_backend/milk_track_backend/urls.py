@@ -41,5 +41,6 @@ urlpatterns = [
     
     # Router API endpoints
     path('api/reports/', include('reports.urls')),
+    path('api/', include('core.urls')),
     path('api/', include(router.urls)),
 ]

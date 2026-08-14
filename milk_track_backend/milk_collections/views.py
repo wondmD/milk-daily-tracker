@@ -7,6 +7,7 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 from ethiopian_date import EthiopianDateConverter
 import datetime
+from core.models import SystemSettings
 
 class MilkCollectionViewSet(viewsets.ModelViewSet):
     queryset = MilkCollection.objects.all().order_by('-created_at')
@@ -22,6 +23,10 @@ class MilkCollectionViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
+        if 'price_per_liter' not in serializer.validated_data:
+            settings = SystemSettings.load()
+            serializer.validated_data['price_per_liter'] = settings.default_supplier_milk_price
+
         collection = serializer.save(collection_worker=self.request.user)
         
         # Log to ledger
@@ -60,6 +65,10 @@ class MilkCollectionViewSet(viewsets.ModelViewSet):
         # We need to calculate the diff for the ledger
         old_quantity = old_instance.total_quantity
         
+        if 'price_per_liter' not in serializer.validated_data and old_instance.price_per_liter == 0:
+            settings = SystemSettings.load()
+            serializer.validated_data['price_per_liter'] = settings.default_supplier_milk_price
+            
         new_instance = serializer.save()
         new_quantity = new_instance.total_quantity
         

@@ -115,10 +115,10 @@ export default function Sidebar() {
       </div>
       
       <div className="border-t border-primary-hover p-4 bg-primary/50">
-        <button className="flex w-full items-center rounded-md px-3 py-2 text-sm font-semibold text-primary-light hover:bg-primary-hover hover:text-white transition-colors">
+        <Link href="/settings" className="flex w-full items-center rounded-md px-3 py-2 text-sm font-semibold text-primary-light hover:bg-primary-hover hover:text-white transition-colors">
           <Settings className="mr-3 h-5 w-5 text-primary-light/80" />
           {t('sidebar', 'settings')}
-        </button>
+        </Link>
         <button 
           onClick={() => signOut()}
           className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm font-semibold text-primary-light hover:bg-danger-subtle hover:text-danger transition-colors"

@@ -20,7 +20,6 @@ const CollectionSchema = Yup.object().shape({
   ethiopian_date: Yup.string().required('Date is required'),
   morning_quantity: Yup.number().min(0, 'Cannot be negative').required('Required'),
   evening_quantity: Yup.number().min(0, 'Cannot be negative').required('Required'),
-  price_per_liter: Yup.number().positive('Must be positive').required('Required'),
 });
 
 interface CollectionModalProps {
@@ -87,7 +86,6 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
         supplier: collection.supplier,
         morning_quantity: collection.morning_quantity,
         evening_quantity: collection.evening_quantity,
-        price_per_liter: collection.price_per_liter,
         admin_password: '',
       };
     }
@@ -96,7 +94,6 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
       ethiopian_date: getTodayEthiopian(),
       morning_quantity: 0,
       evening_quantity: 0,
-      price_per_liter: '',
       admin_password: '',
     };
   }, [collection]);
@@ -139,10 +136,6 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
                   } pl-3 pr-8 py-2.5 text-sm transition-colors duration-200 outline-none`}
                   onChange={(e: any) => {
                     setFieldValue('supplier', e.target.value);
-                    const selectedSupplier = suppliers.find(s => s.id === Number(e.target.value));
-                    if (selectedSupplier) {
-                      setFieldValue('price_per_liter', selectedSupplier.default_milk_price);
-                    }
                   }}
                 >
                   <option value="">{t('collectionModal', 'selectSupplier')}</option>
@@ -184,13 +177,6 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
                   icon={<Droplets className="h-4 w-4" />}
                 />
               </div>
-              
-              <FormInput 
-                name="price_per_liter" 
-                label={t('collectionModal', 'pricePerLiter')}
-                type="number" 
-                icon={<DollarSign className="h-4 w-4" />}
-              />
 
               <div className="pt-2">
                 <div className="flex justify-between items-center text-sm p-3 bg-info-subtle rounded-lg border border-info/20">
