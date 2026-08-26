@@ -14,6 +14,17 @@ import { SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton';
 export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined);
+
+  const handleEdit = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedCustomer(undefined);
+    setIsModalOpen(false);
+  };
 
   const { data: customers = [], isLoading, isError } = useQuery({
     queryKey: ['customers'],
@@ -135,7 +146,10 @@ export default function CustomersPage() {
                       />
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
-                      <button className="text-muted hover:text-primary transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]">
+                      <button 
+                        onClick={() => handleEdit(customer)}
+                        className="text-muted hover:text-primary transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]"
+                      >
                         <Edit2 className="h-4 w-4" />
                         <span className="sr-only">Edit {customer.business_name}</span>
                       </button>
@@ -150,7 +164,10 @@ export default function CustomersPage() {
           <div className="sm:hidden flex flex-col gap-4">
             {filteredCustomers.map((customer) => (
               <div key={customer.id} className="bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border p-4 relative">
-                <button className="absolute top-4 right-4 p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors">
+                <button 
+                  onClick={() => handleEdit(customer)}
+                  className="absolute top-4 right-4 p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors"
+                >
                   <Edit2 className="h-4 w-4" />
                 </button>
                 <div className="flex items-center mb-3">
@@ -186,7 +203,8 @@ export default function CustomersPage() {
 
       <CustomerModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={handleCloseModal} 
+        customer={selectedCustomer}
       />
     </div>
   );

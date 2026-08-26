@@ -14,6 +14,17 @@ import { SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton';
 export default function SuppliersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>(undefined);
+
+  const handleEdit = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedSupplier(undefined);
+    setIsModalOpen(false);
+  };
 
   const { data: suppliers = [], isLoading, isError } = useQuery({
     queryKey: ['suppliers'],
@@ -135,7 +146,10 @@ export default function SuppliersPage() {
                       />
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
-                      <button className="text-muted hover:text-primary transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]">
+                      <button 
+                        onClick={() => handleEdit(supplier)}
+                        className="text-muted hover:text-primary transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]"
+                      >
                         <Edit2 className="h-4 w-4" />
                         <span className="sr-only">Edit {supplier.name}</span>
                       </button>
@@ -150,7 +164,10 @@ export default function SuppliersPage() {
           <div className="sm:hidden flex flex-col gap-4">
             {filteredSuppliers.map((supplier) => (
               <div key={supplier.id} className="bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border p-4 relative">
-                <button className="absolute top-4 right-4 p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors">
+                <button 
+                  onClick={() => handleEdit(supplier)}
+                  className="absolute top-4 right-4 p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors"
+                >
                   <Edit2 className="h-4 w-4" />
                 </button>
                 <div className="flex items-center mb-3">
@@ -186,7 +203,8 @@ export default function SuppliersPage() {
       
       <SupplierModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={handleCloseModal} 
+        supplier={selectedSupplier}
       />
     </div>
   );

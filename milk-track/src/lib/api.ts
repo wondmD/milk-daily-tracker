@@ -1,4 +1,4 @@
-import { getSession } from 'next-auth/react';
+import { getSession, signOut } from 'next-auth/react';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -30,8 +30,10 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   });
 
   if (response.status === 401) {
-    // If unauthorized, could redirect to login here or handle globally
     console.warn("API returned 401 Unauthorized for", endpoint);
+    if (typeof window !== 'undefined') {
+      signOut({ redirect: true, callbackUrl: '/login' });
+    }
   }
 
   if (!response.ok) {

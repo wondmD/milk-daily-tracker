@@ -64,6 +64,8 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['distributions'] });
       queryClient.invalidateQueries({ queryKey: ['daily-reconciliation'] });
+      queryClient.invalidateQueries({ queryKey: ['customers_summary'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
       showSuccess(isEdit ? 'Delivery updated successfully!' : 'Delivery recorded successfully!');
       onClose();
     },

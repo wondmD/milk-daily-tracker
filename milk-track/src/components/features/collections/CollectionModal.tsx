@@ -64,6 +64,8 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       queryClient.invalidateQueries({ queryKey: ['daily-reconciliation'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers_summary'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       showSuccess(isEdit ? 'Collection updated successfully!' : 'Collection recorded successfully!');
       onClose();
     },
