@@ -17,6 +17,7 @@ export interface Customer {
   period_start?: string;
   period_end?: string;
   has_record_today?: boolean;
+  daily_records?: Record<number, number>;
 }
 
 export interface CustomerSettlementHistory {

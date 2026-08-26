@@ -45,16 +45,30 @@ class SupplierViewSet(viewsets.ModelViewSet):
         
         totals_dict = {t['supplier']: t for t in totals}
         
+        # Get daily breakdown
+        daily_collections = collections.values('supplier', 'ethiopian_day').annotate(
+            qty=Sum('total_quantity')
+        )
+        
+        daily_dict = {}
+        for dc in daily_collections:
+            sup_id = dc['supplier']
+            day = dc['ethiopian_day']
+            if sup_id not in daily_dict:
+                daily_dict[sup_id] = {}
+            daily_dict[sup_id][day] = float(dc['qty'])
+
         result = []
         for s in suppliers:
             t = totals_dict.get(s.id, {'total_qty': 0, 'total_amt': 0})
             data = SupplierSerializer(s).data
-            data['current_period_milk'] = t.get('total_qty') or 0
-            data['current_period_price'] = t.get('total_amt') or 0
+            data['current_period_milk'] = float(t.get('total_qty') or 0)
+            data['current_period_price'] = float(t.get('total_amt') or 0)
             data['period_name'] = str(period)
             data['period_start'] = period.start_date_ethiopian
             data['period_end'] = period.end_date_ethiopian
             data['has_record_today'] = s.id in today_collected_suppliers
+            data['daily_records'] = daily_dict.get(s.id, {})
             result.append(data)
             
         return Response(result)

@@ -27,6 +27,25 @@ export default function CollectionsPage() {
     (s.phone_number && s.phone_number.includes(searchTerm))
   );
 
+  let periodDays: number[] = [];
+  if (suppliers.length > 0 && suppliers[0].period_start && suppliers[0].period_end) {
+    // Parse "Meskerem 1, 2017" to "Meskerem 15, 2017"
+    try {
+      const startDayStr = suppliers[0].period_start.split(' ')[1].replace(',', '');
+      const endDayStr = suppliers[0].period_end.split(' ')[1].replace(',', '');
+      const start = parseInt(startDayStr);
+      const end = parseInt(endDayStr);
+      for (let i = start; i <= end; i++) {
+        periodDays.push(i);
+      }
+    } catch (e) {
+      // fallback
+      periodDays = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
+    }
+  } else {
+    periodDays = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <PageHeader
@@ -82,74 +101,60 @@ export default function CollectionsPage() {
       ) : (
         <>
           {/* Desktop Table View */}
-          <div className="hidden sm:block bg-surface rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border overflow-hidden">
+          <div className="hidden sm:block bg-surface rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-border overflow-x-auto">
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-surface-secondary">
                 <tr>
-                  <th scope="col" className="py-3.5 pl-6 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    {t('collections', 'no')}
+                  <th scope="col" className="py-3.5 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted sticky left-0 bg-surface-secondary z-10">
+                    No.
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    {t('collections', 'name')}
+                  <th scope="col" className="px-2 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted sticky left-12 bg-surface-secondary z-10 border-r border-border">
+                    Supplier
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    {t('collections', 'phone')}
+                  {periodDays.map(day => (
+                    <th key={day} scope="col" className="px-2 py-3.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted whitespace-nowrap">
+                      {day}
+                    </th>
+                  ))}
+                  <th scope="col" className="px-3 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted border-l border-border bg-surface-secondary">
+                    Total
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    {t('collections', 'currentPeriodMilk')}
+                  <th scope="col" className="px-3 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted bg-surface-secondary">
+                    Payable
                   </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    {t('collections', 'expectedPrice')}
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    Today's Record
-                  </th>
-                  <th scope="col" className="relative py-3.5 pl-3 pr-6">
-                    <span className="sr-only">{t('common', 'actions')}</span>
+                  <th scope="col" className="relative py-3.5 pl-2 pr-4 bg-surface-secondary">
+                    <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-surface">
                 {filteredSuppliers.map((supplier, index) => (
                   <tr key={supplier.id} className="hover:bg-surface-secondary transition-colors">
-                    <td className="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-semibold text-muted">
+                    <td className="whitespace-nowrap py-3 pl-4 pr-2 text-xs font-semibold text-muted sticky left-0 bg-surface z-10 group-hover:bg-surface-secondary">
                       {index + 1}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-foreground">
+                    <td className="whitespace-nowrap px-2 py-3 text-sm text-foreground sticky left-12 bg-surface z-10 border-r border-border group-hover:bg-surface-secondary">
                       <div className="flex items-center font-medium">
-                        <div className="h-6 w-6 rounded-full bg-surface-secondary flex items-center justify-center mr-2 text-xs border border-border text-muted">
-                          {supplier.name.charAt(0) || <User className="h-3 w-3" />}
-                        </div>
-                        {supplier.name}
+                        <span className="truncate max-w-[120px]" title={supplier.name}>{supplier.name}</span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-muted">
-                      {supplier.phone_number || '-'}
+                    {periodDays.map(day => {
+                      const qty = supplier.daily_records?.[day] || 0;
+                      return (
+                        <td key={day} className={`whitespace-nowrap px-2 py-3 text-xs text-center font-medium ${qty > 0 ? 'text-primary' : 'text-muted/40'}`}>
+                          {qty > 0 ? qty : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="whitespace-nowrap px-3 py-3 text-sm font-bold text-foreground text-right border-l border-border bg-surface-secondary/30">
+                      {supplier.current_period_milk || 0} L
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm font-bold text-foreground">
-                      <div className="flex items-center">
-                        <Droplets className="mr-1.5 h-4 w-4 text-primary" />
-                        {supplier.current_period_milk || 0} L
-                      </div>
+                    <td className="whitespace-nowrap px-3 py-3 text-sm font-semibold text-foreground text-right bg-surface-secondary/30">
+                      {(supplier.current_period_price || 0).toLocaleString()} 
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm font-semibold text-foreground">
-                      {supplier.current_period_price || 0} ETB
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      {supplier.has_record_today ? (
-                        <span className="inline-flex items-center rounded-full bg-success-subtle px-2.5 py-1 text-xs font-semibold text-success border border-success/20">
-                          Recorded
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-warning-subtle px-2.5 py-1 text-xs font-semibold text-warning border border-warning/20">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
-                      <Link href={`/collections/${supplier.id}`} className="inline-flex items-center text-primary hover:text-primary-hover transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]">
-                        <span>{t('collections', 'viewDetails')}</span>
-                        <ArrowRight className="ml-1.5 h-4 w-4" />
+                    <td className="relative whitespace-nowrap py-3 pl-2 pr-4 text-right text-sm font-medium bg-surface-secondary/30">
+                      <Link href={`/collections/${supplier.id}`} className="inline-flex items-center text-primary hover:text-primary-hover transition-colors p-1.5 hover:bg-primary-light/10 rounded-md">
+                        <ArrowRight className="h-4 w-4" />
                       </Link>
                     </td>
                   </tr>

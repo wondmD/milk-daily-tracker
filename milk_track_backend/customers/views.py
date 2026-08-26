@@ -45,16 +45,30 @@ class CustomerViewSet(viewsets.ModelViewSet):
         
         totals_dict = {t['customer']: t for t in totals}
         
+        # Get daily breakdown
+        daily_deliveries = deliveries.values('customer', 'ethiopian_day').annotate(
+            qty=Sum('net_quantity')
+        )
+        
+        daily_dict = {}
+        for dd in daily_deliveries:
+            cus_id = dd['customer']
+            day = dd['ethiopian_day']
+            if cus_id not in daily_dict:
+                daily_dict[cus_id] = {}
+            daily_dict[cus_id][day] = float(dd['qty'])
+
         result = []
         for c in customers:
             t = totals_dict.get(c.id, {'total_net': 0, 'total_amt': 0})
             data = CustomerSerializer(c).data
-            data['current_period_milk'] = t.get('total_net') or 0
-            data['current_period_price'] = t.get('total_amt') or 0
+            data['current_period_milk'] = float(t.get('total_net') or 0)
+            data['current_period_price'] = float(t.get('total_amt') or 0)
             data['period_name'] = str(period)
             data['period_start'] = period.start_date_ethiopian
             data['period_end'] = period.end_date_ethiopian
             data['has_record_today'] = c.id in today_delivered_customers
+            data['daily_records'] = daily_dict.get(c.id, {})
             result.append(data)
             
         return Response(result)
