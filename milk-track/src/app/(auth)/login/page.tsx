@@ -70,7 +70,7 @@ export default function LoginPage() {
                   type="text"
                   required
                   className="appearance-none rounded-xl relative block w-full px-3 py-3 pl-10 border border-border placeholder:text-muted text-foreground focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm bg-surface-secondary transition-colors"
-                  placeholder="Username (e.g. admin)"
+                  placeholder="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
@@ -88,7 +88,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   className="appearance-none rounded-xl relative block w-full px-3 py-3 pl-10 border border-border placeholder:text-muted text-foreground focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm bg-surface-secondary transition-colors"
-                  placeholder="Password (e.g. admin123)"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -111,16 +111,6 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
-        
-        <div className="mt-8 border-t border-border pt-6">
-          <p className="text-sm font-medium text-foreground mb-3">Demo Accounts Available:</p>
-          <ul className="text-sm text-muted space-y-2">
-            <li className="flex justify-between"><span>Admin:</span> <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded text-foreground">admin / admin123</span></li>
-            <li className="flex justify-between"><span>Collector:</span> <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded text-foreground">collector / demo123</span></li>
-            <li className="flex justify-between"><span>Distributor:</span> <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded text-foreground">distributor / demo123</span></li>
-            <li className="flex justify-between"><span>Accountant:</span> <span className="font-mono bg-surface-secondary px-2 py-0.5 rounded text-foreground">accountant / demo123</span></li>
-          </ul>
-        </div>
       </div>
     </div>
   );
