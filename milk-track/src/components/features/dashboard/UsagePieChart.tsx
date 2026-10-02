@@ -23,7 +23,7 @@ export default function UsagePieChart({ delivered, processed, stored, wasted }: 
   const data = [
     { name: t('dashboard', 'delivered'), value: delivered, color: '#059669' }, // success
     { name: t('dashboard', 'processing'), value: processed, color: '#0284C7' }, // info
-    { name: t('dashboard', 'storage'), value: stored, color: '#F59E0B' }, // warning
+    { name: t('dashboard', 'onHand'), value: stored, color: '#F59E0B' },
     { name: t('dashboard', 'waste'), value: wasted, color: '#DC2626' }, // danger
   ].filter(item => item.value > 0);
 

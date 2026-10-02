@@ -11,12 +11,19 @@ import { fetchApi } from '@/lib/api';
 import { getCustomers } from '@/services/customers';
 import { getDeliveries } from '@/services/distributions';
 import { showSuccess, showError } from '@/lib/toast';
+import { invalidateOperationalData } from '@/lib/querySync';
 import { Calendar, DollarSign, Truck, Lock } from 'lucide-react';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 import { useTranslation } from '@/hooks/useTranslation';
 
 const DeliverySchema = Yup.object().shape({
-  customer: Yup.number().required('Customer is required'),
+  sale_type: Yup.string().oneOf(['registered', 'walk_in']).required(),
+  customer: Yup.mixed().when('sale_type', {
+    is: 'registered',
+    then: () => Yup.number().typeError('Customer is required').required('Customer is required'),
+    otherwise: () => Yup.mixed().nullable(),
+  }),
+  buyer_name: Yup.string(),
   ethiopian_date: Yup.string().required('Date is required'),
   delivered_quantity: Yup.number().min(0, 'Cannot be negative').required('Required'),
   price_per_liter: Yup.number().positive('Must be positive').required('Required'),
@@ -48,7 +55,20 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
   const mutation = useMutation({
     mutationFn: (values: any) => {
       const [year, month, day] = values.ethiopian_date.split('-').map(Number);
-      const payload = { ...values, ethiopian_year: year, ethiopian_month: month, ethiopian_day: day };
+      const isWalkIn = values.sale_type === 'walk_in';
+      const payload = {
+        ethiopian_date: values.ethiopian_date,
+        ethiopian_year: year,
+        ethiopian_month: month,
+        ethiopian_day: day,
+        delivered_quantity: values.delivered_quantity,
+        returned_quantity: values.returned_quantity || 0,
+        price_per_liter: values.price_per_liter,
+        notes: values.notes || '',
+        admin_password: values.admin_password || '',
+        customer: isWalkIn ? null : Number(values.customer),
+        buyer_name: isWalkIn ? (values.buyer_name || 'Walk-in') : '',
+      };
       
       if (isEdit) {
         return fetchApi(`/milk-deliveries/${delivery.id}/`, {
@@ -62,16 +82,12 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['distributions'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-reconciliation'] });
-      queryClient.invalidateQueries({ queryKey: ['customers_summary'] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      invalidateOperationalData(queryClient);
       showSuccess(isEdit ? 'Delivery updated successfully!' : 'Delivery recorded successfully!');
       onClose();
     },
-    onError: (error: any) => {
-      console.error(error);
-      showError('Failed to save delivery record.');
+    onError: (error: Error) => {
+      showError(error.message || 'Failed to save delivery record.');
     }
   });
 
@@ -84,15 +100,19 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
     if (delivery) {
       return {
         ...delivery,
+        sale_type: delivery.customer ? 'registered' : 'walk_in',
         ethiopian_date: `${delivery.ethiopian_year}-${String(delivery.ethiopian_month).padStart(2, '0')}-${String(delivery.ethiopian_day).padStart(2, '0')}`,
-        customer: delivery.customer,
+        customer: delivery.customer || '',
+        buyer_name: delivery.buyer_name || '',
         delivered_quantity: delivery.delivered_quantity,
         price_per_liter: delivery.price_per_liter,
         admin_password: '',
       };
     }
     return {
+      sale_type: 'registered',
       customer: '',
+      buyer_name: '',
       ethiopian_date: getTodayEthiopian(),
       delivered_quantity: '',
       price_per_liter: '',
@@ -126,6 +146,37 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
             <div className="bg-surface-secondary p-4 rounded-[14px] border border-border space-y-4">
               <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-2">{t('deliveryModal', 'deliveryDetails')}</h4>
               
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFieldValue('sale_type', 'registered')}
+                  className={`rounded-[10px] border px-3 py-2 text-sm font-medium ${
+                    values.sale_type === 'registered' ? 'border-primary bg-primary text-white' : 'border-border text-foreground'
+                  }`}
+                >
+                  {t('deliveryModal', 'registeredCustomer')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFieldValue('sale_type', 'walk_in');
+                    setFieldValue('customer', '');
+                  }}
+                  className={`rounded-[10px] border px-3 py-2 text-sm font-medium ${
+                    values.sale_type === 'walk_in' ? 'border-primary bg-primary text-white' : 'border-border text-foreground'
+                  }`}
+                >
+                  {t('deliveryModal', 'oneTimeSale')}
+                </button>
+              </div>
+
+              {values.sale_type === 'walk_in' ? (
+                <FormInput
+                  name="buyer_name"
+                  label={t('deliveryModal', 'buyerName')}
+                  placeholder={t('deliveryModal', 'buyerNamePlaceholder')}
+                />
+              ) : (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-foreground mb-1.5">{t('deliveryModal', 'customer')}</label>
                 <Field 
@@ -147,7 +198,8 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
                   <option value="">{t('deliveryModal', 'selectCustomer')}</option>
                   {customers.filter(c => {
                     const hasRecordToday = deliveries.some(
-                      (d: any) => d.ethiopian_date === values.ethiopian_date && d.customer === c.id && (!isEdit || d.id !== delivery?.id)
+                      (d: any) => d.customer === c.id && (!isEdit || d.id !== delivery?.id) &&
+                        `${d.ethiopian_year}-${String(d.ethiopian_month).padStart(2, '0')}-${String(d.ethiopian_day).padStart(2, '0')}` === values.ethiopian_date
                     );
                     return !hasRecordToday;
                   }).map(c => (
@@ -158,6 +210,7 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
                   <div className="mt-1.5 text-sm text-danger font-medium">{String(errors.customer)}</div>
                 )}
               </div>
+              )}
 
               <FormInput 
                 name="ethiopian_date" 

@@ -3,7 +3,8 @@ import { Customer } from './customers';
 
 export interface MilkDelivery {
   id?: number;
-  customer: number;
+  customer: number | null;
+  buyer_name?: string;
   customer_details?: Customer;
   ethiopian_date: string;
   ethiopian_year: number;

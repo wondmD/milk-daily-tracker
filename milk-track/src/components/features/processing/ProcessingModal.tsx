@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import { fetchApi } from '@/lib/api';
 import { getProducts } from '@/services/processing';
 import { showSuccess, showError } from '@/lib/toast';
+import { invalidateOperationalData } from '@/lib/querySync';
 import { Calendar, Droplets, Factory, Package } from 'lucide-react';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 
@@ -44,15 +45,12 @@ export default function ProcessingModal({ isOpen, onClose }: ProcessingModalProp
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['processing-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['product-inventory'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-reconciliation'] });
+      invalidateOperationalData(queryClient);
       showSuccess('Processing batch recorded successfully!');
       onClose();
     },
-    onError: (error: any) => {
-      console.error(error);
-      showError('Failed to record processing batch.');
+    onError: (error: Error) => {
+      showError(error.message || 'Failed to record processing batch.');
     }
   });
 

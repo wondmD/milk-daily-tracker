@@ -11,6 +11,7 @@ import { fetchApi } from '@/lib/api';
 import { getSuppliers } from '@/services/suppliers';
 import { getCollections } from '@/services/collections';
 import { showSuccess, showError } from '@/lib/toast';
+import { invalidateOperationalData } from '@/lib/querySync';
 import { Calendar, DollarSign, Droplets, Lock } from 'lucide-react';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -62,16 +63,12 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-reconciliation'] });
-      queryClient.invalidateQueries({ queryKey: ['suppliers_summary'] });
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      invalidateOperationalData(queryClient);
       showSuccess(isEdit ? 'Collection updated successfully!' : 'Collection recorded successfully!');
       onClose();
     },
-    onError: (error: any) => {
-      console.error(error);
-      showError('Failed to save collection record.');
+    onError: (error: Error) => {
+      showError(error.message || 'Failed to save collection record.');
     }
   });
 

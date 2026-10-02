@@ -10,7 +10,15 @@ export interface SettlementPeriod {
   start_date_ethiopian: string;
   end_date_ethiopian: string;
   status: string;
+  supplier_price?: string | number | null;
   created_at?: string;
+  finance?: {
+    revenue: number;
+    milk_cost: number;
+    expenses: number;
+    total_cost: number;
+    profit: number;
+  };
   supplier_summary?: {
     total_due: number;
     total_paid: number;
@@ -53,6 +61,7 @@ export interface CustomerSettlement {
   amount_paid: number | string;
   remaining_balance: number | string;
   payment_status: string;
+  unit_price?: number | string;
 }
 
 export const getSettlementPeriods = async (): Promise<SettlementPeriod[]> => {
@@ -78,4 +87,18 @@ export const getSupplierSettlements = async (): Promise<SupplierSettlement[]> =>
 
 export const getCustomerSettlements = async (): Promise<CustomerSettlement[]> => {
   return fetchApi('/customer-settlements/');
+};
+
+export const updatePeriodSupplierPrice = async (periodId: number, price: string | number): Promise<SettlementPeriod> => {
+  return fetchApi(`/settlement-periods/${periodId}/supplier-price/`, {
+    method: 'POST',
+    body: JSON.stringify({ price }),
+  });
+};
+
+export const updateCustomerPeriodPrice = async (settlementId: number, price: string | number): Promise<CustomerSettlement> => {
+  return fetchApi(`/customer-settlements/${settlementId}/price/`, {
+    method: 'POST',
+    body: JSON.stringify({ price }),
+  });
 };

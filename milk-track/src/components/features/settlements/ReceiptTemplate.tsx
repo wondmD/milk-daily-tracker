@@ -61,7 +61,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
               {Number(adjustments) !== 0 && (
                 <tr>
                   <td className="py-4 text-gray-800">Adjustments ({entityType === 'SUPPLIER' ? 'Advances' : 'Returns'})</td>
-                  <td className="py-4 text-right font-medium text-red-600">{Number(adjustments) > 0 ? '-' : '+'}{Math.abs(Number(adjustments))} ETB</td>
+                  <td className="py-4 text-right font-medium text-red-600">-{Math.abs(Number(adjustments))} ETB</td>
                 </tr>
               )}
               <tr className="bg-gray-50">

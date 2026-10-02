@@ -4,6 +4,7 @@ import { X, Trash2, Calendar, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { fetchApi } from '@/lib/api';
 import { showSuccess, showError } from '@/lib/toast';
+import { invalidateOperationalData } from '@/lib/querySync';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 
 interface WastageFormData {
@@ -38,13 +39,13 @@ export default function WastageModal({ isOpen, onClose }: { isOpen: boolean; onC
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reconciliation'] });
+      invalidateOperationalData(queryClient);
       showSuccess('Wastage logged successfully');
       setFormData({ quantity: 0, reason: 'SPOILED', notes: '' });
       onClose();
     },
-    onError: () => {
-      showError('Failed to log wastage. Please try again.');
+    onError: (error: Error) => {
+      showError(error.message || 'Failed to log wastage. Please try again.');
     },
     onSettled: () => {
       setIsSubmitting(false);

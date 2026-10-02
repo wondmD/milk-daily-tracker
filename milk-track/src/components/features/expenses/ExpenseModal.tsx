@@ -8,6 +8,7 @@ import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { fetchApi } from '@/lib/api';
 import { showSuccess, showError } from '@/lib/toast';
+import { invalidateOperationalData } from '@/lib/querySync';
 import { Calendar, DollarSign, Text } from 'lucide-react';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 
@@ -45,7 +46,7 @@ export default function ExpenseModal({ isOpen, onClose, expense }: ExpenseModalP
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      invalidateOperationalData(queryClient);
       showSuccess(isEdit ? 'Expense updated successfully!' : 'Expense recorded successfully!');
       onClose();
     },

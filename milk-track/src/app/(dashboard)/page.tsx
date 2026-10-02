@@ -1,9 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getDailyReconciliation } from '@/services/reconciliation';
-import { getExpenses } from '@/services/expenses';
-import { getTrendSummary } from '@/services/reports';
+import { getOperationsDashboard, getTrendSummary } from '@/services/reports';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 import { useSession } from 'next-auth/react';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -21,34 +19,32 @@ export default function DashboardPage() {
     'Megabit', 'Miyazia', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
   ];
   
-  const { data: reconciliation } = useQuery({
-    queryKey: ['daily-reconciliation', now.year, now.month, now.date],
-    queryFn: () => getDailyReconciliation(now.year, now.month, now.date),
-  });
-
-  const { data: expenses = [] } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: getExpenses,
+  const { data: operations, isLoading: isLoadingOperations } = useQuery({
+    queryKey: ['operations-dashboard', now.year, now.month, now.date],
+    queryFn: getOperationsDashboard,
   });
 
   const { data: trendData = [], isLoading: isLoadingTrend } = useQuery({
-    queryKey: ['trend-summary'],
+    queryKey: ['trend-summary', 14],
     queryFn: () => getTrendSummary(14),
   });
 
+  const milk = operations?.milk;
+  const finance = operations?.finance;
   const stats = {
-    collected: reconciliation?.collected || 0,
-    delivered: reconciliation?.delivered || 0,
-    processed: reconciliation?.processed || 0,
-    stored: reconciliation?.stored || 0,
-    wasted: reconciliation?.wasted || 0,
-    unreconciled: Math.abs(reconciliation?.net_balance || 0),
+    collected: milk?.collected || 0,
+    delivered: milk?.delivered || 0,
+    returned: milk?.returned || 0,
+    processed: milk?.processed || 0,
+    onHand: milk?.on_hand || 0,
+    wasted: milk?.wasted || 0,
   };
-
-  const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
-  const estimatedReceivables = stats.delivered * 65;
-  const estimatedPayables = stats.collected * 50; 
-  const margin = estimatedReceivables - estimatedPayables - totalExpenses;
+  const sales = finance?.sales || 0;
+  const receivable = finance?.receivable || 0;
+  const payable = finance?.payable || 0;
+  const totalExpenses = finance?.operational_expenses || 0;
+  const milkCost = finance?.milk_cost || 0;
+  const margin = finance?.profit || 0;
 
   const currentPeriodText = now.date <= 15 ? '1 — 15' : '16 — 30';
 
@@ -69,6 +65,7 @@ export default function DashboardPage() {
         <section className="bg-surface rounded-[20px] p-6 lg:p-8 border border-border shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
           <h2 className="text-[18px] font-bold tracking-widest uppercase text-muted mb-8">
             {t('dashboard', 'todaysMilkFlow')}
+            {isLoadingOperations && <span className="ml-3 text-xs normal-case tracking-normal">…</span>}
           </h2>
 
           <div className="flex flex-col lg:flex-row gap-8 items-center">
@@ -88,6 +85,12 @@ export default function DashboardPage() {
                   <span className="text-muted mx-4">→</span>
                   <span className="text-foreground font-medium">{t('dashboard', 'delivered')}</span>
                 </div>
+
+                <div className="flex items-center text-[16px]">
+                  <span className="w-20 font-bold text-foreground">{stats.returned} L</span>
+                  <span className="text-muted mx-4">→</span>
+                  <span className="text-foreground font-medium">{t('dashboard', 'returned')}</span>
+                </div>
                 
                 <div className="flex items-center text-[16px]">
                   <span className="w-20 font-bold text-foreground">{stats.processed} L</span>
@@ -96,9 +99,9 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="flex items-center text-[16px]">
-                  <span className="w-20 font-bold text-foreground">{stats.stored} L</span>
+                  <span className={`w-20 font-bold ${stats.onHand < 0 ? 'text-danger' : 'text-foreground'}`}>{stats.onHand} L</span>
                   <span className="text-muted mx-4">→</span>
-                  <span className="text-foreground font-medium">{t('dashboard', 'storage')}</span>
+                  <span className="text-foreground font-medium">{t('dashboard', 'onHand')}</span>
                 </div>
                 
                 <div className="flex items-center text-[16px]">
@@ -108,10 +111,10 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {stats.unreconciled > 0 && (
+              {stats.onHand < 0 && (
                 <div className="mt-8 pt-6 border-t border-danger-subtle">
                   <div className="text-[24px] font-bold text-danger leading-none">
-                    {stats.unreconciled} <span className="text-lg font-normal">L</span>
+                    {Math.abs(stats.onHand)} <span className="text-lg font-normal">L</span>
                   </div>
                   <div className="text-[14px] text-danger mt-1 font-medium">{t('dashboard', 'needsAttention')}</div>
                 </div>
@@ -122,7 +125,7 @@ export default function DashboardPage() {
               <UsagePieChart 
                 delivered={stats.delivered}
                 processed={stats.processed}
-                stored={stats.stored}
+                stored={Math.max(stats.onHand, 0)}
                 wasted={stats.wasted}
               />
             </div>
@@ -138,16 +141,33 @@ export default function DashboardPage() {
           <div className="space-y-8">
             
             <div>
+              <div className="text-[14px] text-muted font-medium mb-1">{t('dashboard', 'sales')}</div>
+              <div className="text-[24px] font-bold text-foreground">
+                {sales.toLocaleString()} <span className="text-[16px] font-normal text-muted">ETB</span>
+              </div>
+              {(finance?.walk_in_sales || 0) > 0 && (
+                <div className="text-xs text-muted mt-1">{t('dashboard', 'walkInSales')}: {(finance?.walk_in_sales || 0).toLocaleString()} ETB</div>
+              )}
+            </div>
+
+            <div>
               <div className="text-[14px] text-muted font-medium mb-1">{t('dashboard', 'receivable')}</div>
               <div className="text-[24px] font-bold text-foreground">
-                {estimatedReceivables.toLocaleString()} <span className="text-[16px] font-normal text-muted">ETB</span>
+                {receivable.toLocaleString()} <span className="text-[16px] font-normal text-muted">ETB</span>
               </div>
             </div>
 
             <div>
               <div className="text-[14px] text-muted font-medium mb-1">{t('dashboard', 'payable')}</div>
               <div className="text-[24px] font-bold text-foreground">
-                {estimatedPayables.toLocaleString()} <span className="text-[16px] font-normal text-muted">ETB</span>
+                {payable.toLocaleString()} <span className="text-[16px] font-normal text-muted">ETB</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[14px] text-muted font-medium mb-1">{t('dashboard', 'milkCost')}</div>
+              <div className="text-[24px] font-bold text-foreground">
+                {milkCost.toLocaleString()} <span className="text-[16px] font-normal text-muted">ETB</span>
               </div>
             </div>
 

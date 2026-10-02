@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import { fetchApi } from '@/lib/api';
+import { invalidateOperationalData } from '@/lib/querySync';
+import { showError, showSuccess } from '@/lib/toast';
 import { EthDateTime } from 'ethiopian-calendar-date-converter';
 
 interface PaymentModalProps {
@@ -49,11 +51,14 @@ export default function PaymentModal({ isOpen, onClose, supplierId, settlementId
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['supplier_history', supplierId] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      invalidateOperationalData(queryClient);
+      showSuccess(type === 'PAYMENT' ? 'Payment recorded.' : 'Advance recorded.');
       onClose();
       setAmount('');
       setNotes('');
+    },
+    onError: (error: Error) => {
+      showError(error.message || 'Could not save this record.');
     },
   });
 

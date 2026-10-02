@@ -3,7 +3,8 @@
 import { useState, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { useQuery } from '@tanstack/react-query';
-import { getCustomerCurrentPeriodSummary, Customer } from '@/services/customers';
+import { getCustomerCurrentPeriodSummary } from '@/services/customers';
+import { getDeliveries } from '@/services/distributions';
 import { Plus, Search, Truck, Building2, ArrowRight, Printer } from 'lucide-react';
 import Link from 'next/link';
 import DeliveryModal from '@/components/features/distributions/DeliveryModal';
@@ -22,6 +23,13 @@ export default function DistributionsPage() {
     queryKey: ['customers_summary'],
     queryFn: getCustomerCurrentPeriodSummary,
   });
+
+  const { data: deliveries = [] } = useQuery({
+    queryKey: ['distributions'],
+    queryFn: getDeliveries,
+  });
+
+  const walkInSales = deliveries.filter((delivery) => !delivery.customer);
 
   const filteredCustomers = customers.filter(c => 
     c.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -138,7 +146,7 @@ export default function DistributionsPage() {
                       </th>
                     ))}
                     <th scope="col" className="px-3 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted border-r border-border bg-surface-secondary z-20">Total</th>
-                    <th scope="col" className="px-3 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted border-r border-border bg-surface-secondary z-20">Payable</th>
+                    <th scope="col" className="px-3 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted border-r border-border bg-surface-secondary z-20">Sales</th>
                     <th scope="col" className="relative py-3.5 pl-2 pr-4 bg-surface-secondary z-20 print:hidden"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
@@ -180,6 +188,30 @@ export default function DistributionsPage() {
           </div>
 
         </>
+      )}
+
+      {walkInSales.length > 0 && (
+        <div className="bg-surface rounded-[20px] border border-border p-5 shadow-[0_4px_20px_rgb(0,0,0,0.02)]">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-muted mb-4">{t('dashboard', 'walkInSales')}</h3>
+          <div className="divide-y divide-border">
+            {walkInSales.map((sale) => {
+              const liters = Number(sale.net_quantity ?? sale.delivered_quantity) || 0;
+              const amount = liters * Number(sale.price_per_liter || 0);
+              return (
+                <div key={sale.id} className="flex items-center justify-between py-3 text-sm">
+                  <div>
+                    <div className="font-medium text-foreground">{sale.buyer_name || 'Walk-in'}</div>
+                    <div className="text-muted">{sale.ethiopian_date}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-foreground">{liters} L</div>
+                    <div className="text-muted">{amount.toLocaleString()} ETB</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <DeliveryModal 

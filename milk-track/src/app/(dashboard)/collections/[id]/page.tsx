@@ -275,7 +275,7 @@ export default function SupplierDetailPage() {
                     {period.adjustments !== 0 && (
                       <div>
                         <div className="text-[11px] text-muted mb-0.5 font-medium uppercase tracking-wider">Adjustments</div>
-                        <div className="font-bold text-danger text-sm">{period.adjustments} ETB</div>
+                        <div className="font-bold text-danger text-sm">-{Math.abs(Number(period.adjustments))} ETB</div>
                       </div>
                     )}
                     <div>

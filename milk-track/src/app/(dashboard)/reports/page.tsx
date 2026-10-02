@@ -29,9 +29,34 @@ export default function ReportsPage() {
   });
 
   const { data: suppliersData = [], isLoading: suppliersLoading } = useQuery({
-    queryKey: ['top-suppliers', 5],
-    queryFn: () => getTopSuppliers(5),
+    queryKey: ['top-suppliers', selectedYear, selectedMonth, 5],
+    queryFn: () => getTopSuppliers(5, selectedYear, selectedMonth),
   });
+
+  const exportCsv = () => {
+    const rows = [
+      ['Year', String(selectedYear)],
+      ['Month', ethMonths[selectedMonth] || String(selectedMonth)],
+      ['Sales', String(data?.sales ?? data?.revenue ?? 0)],
+      ['One-time sales', String(data?.walk_in_sales ?? 0)],
+      ['Milk cost', String(data?.milk_cost ?? data?.supplier_payments ?? 0)],
+      ['Operating expenses', String(data?.operational_expenses ?? 0)],
+      ['Receivable', String(data?.receivable ?? 0)],
+      ['Payable', String(data?.payable ?? 0)],
+      ['Profit', String(data?.profit ?? data?.net_margin ?? 0)],
+      [],
+      ['Date', 'Collected L', 'Delivered L'],
+      ...trendData.map((row) => [row.date, String(row.collected), String(row.delivered)]),
+    ];
+    const csv = rows.map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `milk-report-${selectedYear}-${selectedMonth}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const ethMonths = [
     '', 'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
@@ -59,7 +84,7 @@ export default function ReportsPage() {
               </select>
             </div>
             <Button
-              onClick={() => {}}
+              onClick={exportCsv}
               leftIcon={<Download className="h-4 w-4" />}
               variant="outline"
             >
@@ -87,8 +112,9 @@ export default function ReportsPage() {
                 </div>
                 <h3 className="font-semibold text-foreground">{t('reports', 'monthlyRevenue')}</h3>
               </div>
-              <p className="text-2xl font-bold text-foreground">{(data?.revenue || 0).toLocaleString()} ETB</p>
+              <p className="text-2xl font-bold text-foreground">{(data?.sales ?? data?.revenue ?? 0).toLocaleString()} ETB</p>
               <p className="text-sm text-muted mt-1">{t('reports', 'fromMilkDistributions')}</p>
+              <p className="text-xs text-muted mt-2">{t('dashboard', 'walkInSales')}: {(data?.walk_in_sales || 0).toLocaleString()} ETB</p>
             </div>
             
             <div className="bg-surface rounded-[14px] border border-border p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] transition-colors hover:border-danger/20">
@@ -100,6 +126,7 @@ export default function ReportsPage() {
               </div>
               <p className="text-2xl font-bold text-foreground">{(data?.total_expenses || 0).toLocaleString()} ETB</p>
               <p className="text-sm text-muted mt-1">{t('reports', 'supplierPaymentsAndLogistics')}</p>
+              <p className="text-xs text-muted mt-2">{t('dashboard', 'milkCost')}: {(data?.milk_cost ?? data?.supplier_payments ?? 0).toLocaleString()} · {t('dashboard', 'expenses')}: {(data?.operational_expenses || 0).toLocaleString()}</p>
             </div>
             
             <div className="bg-surface rounded-[14px] border border-border p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] transition-colors hover:border-success/20">
@@ -109,10 +136,11 @@ export default function ReportsPage() {
                 </div>
                 <h3 className="font-semibold text-foreground">{t('reports', 'netMargin')}</h3>
               </div>
-              <p className={`text-2xl font-bold ${(data?.net_margin || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                {(data?.net_margin || 0).toLocaleString()} ETB
+              <p className={`text-2xl font-bold ${(data?.profit ?? data?.net_margin ?? 0) >= 0 ? 'text-success' : 'text-danger'}`}>
+                {(data?.profit ?? data?.net_margin ?? 0).toLocaleString()} ETB
               </p>
               <p className="text-sm text-muted mt-1">{t('reports', 'overallProfitability')}</p>
+              <p className="text-xs text-muted mt-2">{t('reports', 'receivable')}: {(data?.receivable || 0).toLocaleString()} · {t('reports', 'payable')}: {(data?.payable || 0).toLocaleString()}</p>
             </div>
           </>
         )}
