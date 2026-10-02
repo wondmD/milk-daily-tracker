@@ -51,3 +51,22 @@ class MilkWastage(models.Model):
 
     def __str__(self):
         return f"{self.quantity}L Wasted on {self.ethiopian_date} - {self.get_reason_display()}"
+
+
+class DailyMilkPool(models.Model):
+    """One row per Ethiopian day. Locked so collections, deliveries, processing, and wastage cannot over-allocate the same milk."""
+
+    ethiopian_year = models.IntegerField()
+    ethiopian_month = models.IntegerField()
+    ethiopian_day = models.IntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ethiopian_year', 'ethiopian_month', 'ethiopian_day'],
+                name='unique_daily_milk_pool',
+            )
+        ]
+
+    def __str__(self):
+        return f"Pool {self.ethiopian_year}-{self.ethiopian_month}-{self.ethiopian_day}"

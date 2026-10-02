@@ -17,12 +17,51 @@ class SettlementPeriod(models.Model):
     
     start_date_ethiopian = models.CharField(max_length=20)
     end_date_ethiopian = models.CharField(max_length=20)
+    supplier_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='One purchase price per liter for every supplier in this period',
+    )
     
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ethiopian_year', 'ethiopian_month', 'period_number'],
+                name='unique_settlement_period',
+            )
+        ]
+
     def __str__(self):
         return f"Period {self.period_number} - Month {self.ethiopian_month}, Year {self.ethiopian_year}"
+
+    @classmethod
+    def _get_or_create_period(cls, year, month, period_number, start_date, end_date):
+        from django.db import IntegrityError, transaction
+
+        try:
+            return cls.objects.get(
+                ethiopian_year=year,
+                ethiopian_month=month,
+                period_number=period_number,
+            )
+        except cls.DoesNotExist:
+            try:
+                with transaction.atomic():
+                    return cls.objects.create(
+                        ethiopian_year=year,
+                        ethiopian_month=month,
+                        period_number=period_number,
+                        start_date_ethiopian=start_date,
+                        end_date_ethiopian=end_date,
+                    )
+            except IntegrityError:
+                return cls.objects.get(
+                    ethiopian_year=year,
+                    ethiopian_month=month,
+                    period_number=period_number,
+                )
 
     @classmethod
     def ensure_current_period(cls):
@@ -51,16 +90,7 @@ class SettlementPeriod(models.Model):
                 start_date = f"{month_name} 16, {year}"
                 end_date = f"{month_name} 30, {year}"
                 
-        period, created = cls.objects.get_or_create(
-            ethiopian_year=year,
-            ethiopian_month=month,
-            period_number=period_number,
-            defaults={
-                'start_date_ethiopian': start_date,
-                'end_date_ethiopian': end_date
-            }
-        )
-        return period
+        return cls._get_or_create_period(year, month, period_number, start_date, end_date)
 
     @classmethod
     def get_period_for_ethiopian_date(cls, date_str):
@@ -89,16 +119,7 @@ class SettlementPeriod(models.Model):
                         start_date = f"{month_name} 16, {year}"
                         end_date = f"{month_name} 30, {year}"
                         
-                period, _ = cls.objects.get_or_create(
-                    ethiopian_year=year,
-                    ethiopian_month=month,
-                    period_number=period_number,
-                    defaults={
-                        'start_date_ethiopian': start_date,
-                        'end_date_ethiopian': end_date
-                    }
-                )
-                return period
+                return cls._get_or_create_period(year, month, period_number, start_date, end_date)
         except Exception as e:
             print(f"Error parsing date {date_str}: {e}")
         return None
@@ -124,6 +145,14 @@ class SupplierSettlement(models.Model):
     payment_status = models.CharField(max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID)
     notes = models.TextField(blank=True, null=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['supplier', 'settlement_period'],
+                name='unique_supplier_settlement',
+            )
+        ]
+
 class CustomerSettlement(models.Model):
     class PaymentStatus(models.TextChoices):
         UNPAID = 'UNPAID', 'Unpaid'
@@ -147,3 +176,11 @@ class CustomerSettlement(models.Model):
     
     payment_status = models.CharField(max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID)
     notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer', 'settlement_period'],
+                name='unique_customer_settlement',
+            )
+        ]

@@ -1,13 +1,19 @@
+import datetime
+from decimal import Decimal
+
+from django.db import transaction
+from ethiopian_date import EthiopianDateConverter
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+
+from milk_inventory.coordination import lock_days, require_milk, save_or_duplicate, sync_ledger
+from milk_inventory.models import MilkLedgerTransaction
+from settlements.pricing import price_for_collection_date
+
 from .models import MilkCollection
 from .serializers import MilkCollectionSerializer
-from milk_inventory.models import MilkLedgerTransaction
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
-from ethiopian_date import EthiopianDateConverter
-import datetime
-from core.models import SystemSettings
+
 
 class MilkCollectionViewSet(viewsets.ModelViewSet):
     queryset = MilkCollection.objects.all().order_by('-created_at')
@@ -23,101 +29,112 @@ class MilkCollectionViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        if 'price_per_liter' not in serializer.validated_data:
-            settings = SystemSettings.load()
-            serializer.validated_data['price_per_liter'] = settings.default_supplier_milk_price
-
-        collection = serializer.save(collection_worker=self.request.user)
-        
-        # Log to ledger
-        MilkLedgerTransaction.objects.create(
-            ethiopian_date=collection.ethiopian_date,
-            ethiopian_year=collection.ethiopian_year,
-            ethiopian_month=collection.ethiopian_month,
-            ethiopian_day=collection.ethiopian_day,
-            transaction_type=MilkLedgerTransaction.TransactionType.COLLECTION,
-            quantity=collection.total_quantity,  # positive because milk comes in
-            reference_id=f"COL-{collection.id}",
-            notes=f"Collection from {collection.supplier.name}",
-            recorded_by=self.request.user
+        data = serializer.validated_data
+        serializer.validated_data['price_per_liter'] = price_for_collection_date(
+            data['ethiopian_year'],
+            data['ethiopian_month'],
+            data['ethiopian_day'],
+            data.get('price_per_liter'),
         )
+        lock_days((data['ethiopian_year'], data['ethiopian_month'], data['ethiopian_day']))
+        collection = save_or_duplicate(
+            lambda: serializer.save(collection_worker=self.request.user),
+            'This supplier already has a collection for that day. Update the existing record.',
+        )
+
+        _sync_collection_ledger(collection, self.request.user)
 
     @transaction.atomic
     def perform_update(self, serializer):
         old_instance = self.get_object()
-        
-        # Check if this is a past record
-        today = datetime.date.today()
-        eth_today = EthiopianDateConverter.date_to_ethiopian(today)
-        is_past_record = (
-            old_instance.ethiopian_year != eth_today.year or 
-            old_instance.ethiopian_month != eth_today.month or 
-            old_instance.ethiopian_day != eth_today.day
-        )
-        
-        if is_past_record:
-            admin_password = self.request.data.get('admin_password')
-            if not admin_password:
-                raise ValidationError({"admin_password": "Password is required to edit past records."})
-            if not self.request.user.check_password(admin_password):
-                raise ValidationError({"admin_password": "Invalid password."})
+        _require_password_for_past_record(self.request, old_instance)
 
-        # We need to calculate the diff for the ledger
+        old_date = (
+            old_instance.ethiopian_year,
+            old_instance.ethiopian_month,
+            old_instance.ethiopian_day,
+        )
+        new_date = (
+            serializer.validated_data.get('ethiopian_year', old_instance.ethiopian_year),
+            serializer.validated_data.get('ethiopian_month', old_instance.ethiopian_month),
+            serializer.validated_data.get('ethiopian_day', old_instance.ethiopian_day),
+        )
+        new_morning = Decimal(serializer.validated_data.get('morning_quantity', old_instance.morning_quantity))
+        new_evening = Decimal(serializer.validated_data.get('evening_quantity', old_instance.evening_quantity))
+        new_quantity = new_morning + new_evening
         old_quantity = old_instance.total_quantity
-        
-        if 'price_per_liter' not in serializer.validated_data and old_instance.price_per_liter == 0:
-            settings = SystemSettings.load()
-            serializer.validated_data['price_per_liter'] = settings.default_supplier_milk_price
-            
-        new_instance = serializer.save()
-        new_quantity = new_instance.total_quantity
-        
-        quantity_diff = new_quantity - old_quantity
-        
-        if quantity_diff != 0:
-            MilkLedgerTransaction.objects.create(
-                ethiopian_date=new_instance.ethiopian_date,
-                ethiopian_year=new_instance.ethiopian_year,
-                ethiopian_month=new_instance.ethiopian_month,
-                ethiopian_day=new_instance.ethiopian_day,
-                transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
-                quantity=quantity_diff,
-                reference_id=f"COL-ADJ-{new_instance.id}",
-                notes=f"Adjustment for collection update",
-                recorded_by=self.request.user
-            )
+
+        lock_days(old_date, new_date)
+        if old_date == new_date:
+            if new_quantity < old_quantity:
+                require_milk(*old_date, old_quantity - new_quantity)
+        else:
+            require_milk(*old_date, old_quantity)
+
+        serializer.validated_data['price_per_liter'] = price_for_collection_date(
+            *new_date,
+            serializer.validated_data.get('price_per_liter', old_instance.price_per_liter),
+        )
+
+        new_instance = save_or_duplicate(
+            serializer.save,
+            'This supplier already has a collection for that day. Update the existing record.',
+        )
+        _sync_collection_ledger(new_instance, self.request.user)
 
     @transaction.atomic
     def perform_destroy(self, instance):
-        # Check if this is a past record
-        today = datetime.date.today()
-        eth_today = EthiopianDateConverter.date_to_ethiopian(today)
-        is_past_record = (
-            instance.ethiopian_year != eth_today.year or 
-            instance.ethiopian_month != eth_today.month or 
-            instance.ethiopian_day != eth_today.day
+        _require_password_for_past_record(self.request, instance, allow_query=True)
+        lock_days((instance.ethiopian_year, instance.ethiopian_month, instance.ethiopian_day))
+        require_milk(
+            instance.ethiopian_year,
+            instance.ethiopian_month,
+            instance.ethiopian_day,
+            instance.total_quantity,
         )
-        
-        if is_past_record:
-            # Need to get password from request. Query params for DELETE or body?
-            # DRF doesn't typically send body for DELETE, but it can. We'll check query_params and data.
-            admin_password = self.request.data.get('admin_password') or self.request.query_params.get('admin_password')
-            if not admin_password:
-                raise ValidationError({"admin_password": "Password is required to delete past records."})
-            if not self.request.user.check_password(admin_password):
-                raise ValidationError({"admin_password": "Invalid password."})
-
-        # Revert ledger
-        MilkLedgerTransaction.objects.create(
-            ethiopian_date=instance.ethiopian_date,
-            ethiopian_year=instance.ethiopian_year,
-            ethiopian_month=instance.ethiopian_month,
-            ethiopian_day=instance.ethiopian_day,
-            transaction_type=MilkLedgerTransaction.TransactionType.ADJUSTMENT,
-            quantity=-instance.total_quantity, # negative because we are removing milk that was previously collected
-            reference_id=f"COL-DEL-{instance.id}",
-            notes=f"Reversal due to collection deletion",
-            recorded_by=self.request.user
-        )
-        
+        sync_ledger(_collection_refs(instance.id), [])
         instance.delete()
+
+
+def _collection_refs(collection_id):
+    return [
+        f'COL-{collection_id}',
+        f'COL-ADJ-{collection_id}',
+        f'COL-MOVE-IN-{collection_id}',
+        f'COL-MOVE-OUT-{collection_id}',
+        f'COL-DEL-{collection_id}',
+    ]
+
+
+def _sync_collection_ledger(collection, user):
+    sync_ledger(_collection_refs(collection.id), [{
+        'ethiopian_date': collection.ethiopian_date,
+        'ethiopian_year': collection.ethiopian_year,
+        'ethiopian_month': collection.ethiopian_month,
+        'ethiopian_day': collection.ethiopian_day,
+        'transaction_type': MilkLedgerTransaction.TransactionType.COLLECTION,
+        'quantity': collection.total_quantity,
+        'reference_id': f'COL-{collection.id}',
+        'notes': f'Collection from {collection.supplier.name}',
+        'recorded_by': user,
+    }])
+
+
+def _require_password_for_past_record(request, instance, allow_query=False):
+    today = datetime.date.today()
+    eth_today = EthiopianDateConverter.date_to_ethiopian(today)
+    is_past_record = (
+        instance.ethiopian_year != eth_today.year
+        or instance.ethiopian_month != eth_today.month
+        or instance.ethiopian_day != eth_today.day
+    )
+    if not is_past_record:
+        return
+
+    admin_password = request.data.get('admin_password')
+    if allow_query and not admin_password:
+        admin_password = request.query_params.get('admin_password')
+    if not admin_password:
+        raise ValidationError({'admin_password': 'Password is required to edit past records.'})
+    if not request.user.check_password(admin_password):
+        raise ValidationError({'admin_password': 'Invalid password.'})

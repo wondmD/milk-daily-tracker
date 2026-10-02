@@ -3,12 +3,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from django.db.models import Sum, F
 from .models import SettlementPeriod, SupplierSettlement, CustomerSettlement
 from .serializers import SettlementPeriodSerializer, SupplierSettlementSerializer, CustomerSettlementSerializer
 from milk_collections.models import MilkCollection
 from distributions.models import MilkDelivery
-from payments.models import SupplierAdvance
+from .coordination import refresh_customer_settlement, refresh_period_from_records, refresh_supplier_settlement
+from .pricing import apply_customer_period_price, apply_period_supplier_price
 
 class SettlementPeriodViewSet(viewsets.ModelViewSet):
     queryset = SettlementPeriod.objects.all().order_by('-created_at')
@@ -17,92 +17,40 @@ class SettlementPeriodViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         SettlementPeriod.ensure_current_period()
+        periods = list(super().get_queryset())
+        for period in periods:
+            refresh_period_from_records(period)
         return super().get_queryset()
 
     @action(detail=True, methods=['post'])
     @transaction.atomic
     def calculate_settlements(self, request, pk=None):
         period = self.get_object()
-        
-        # Calculate Supplier Settlements
-        collections = MilkCollection.objects.filter(
+        anchor_day = 1 if period.period_number == 1 else 16
+
+        supplier_ids = MilkCollection.objects.filter(
             ethiopian_year=period.ethiopian_year,
             ethiopian_month=period.ethiopian_month,
-        )
-        if period.period_number == 1:
-            collections = collections.filter(ethiopian_day__lte=15)
-        else:
-            collections = collections.filter(ethiopian_day__gt=15)
+        ).values_list('supplier_id', flat=True).distinct()
+        for supplier_id in supplier_ids:
+            refresh_supplier_settlement(supplier_id, period.ethiopian_year, period.ethiopian_month, anchor_day)
 
-        supplier_totals = collections.values('supplier').annotate(
-            total_qty=Sum('total_quantity'),
-            total_amt=Sum(F('total_quantity') * F('price_per_liter'))
-        )
-
-        for st in supplier_totals:
-            supplier_id = st['supplier']
-            gross = st['total_amt']
-            
-            # Find and sum pending advances for this period
-            advances = SupplierAdvance.objects.filter(
-                supplier_id=supplier_id,
-                settlement_period=period,
-                status=SupplierAdvance.Status.PENDING
-            )
-            total_advances = advances.aggregate(total=Sum('amount'))['total'] or 0
-            
-            final_amt = gross - total_advances
-            
-            SupplierSettlement.objects.update_or_create(
-                supplier_id=supplier_id,
-                settlement_period=period,
-                defaults={
-                    'total_milk_collected': st['total_qty'],
-                    'gross_amount': gross,
-                    'adjustments': total_advances,
-                    'final_amount': final_amt,
-                    'remaining_balance': final_amt
-                }
-            )
-            
-            # Mark advances as deducted
-            advances.update(status=SupplierAdvance.Status.DEDUCTED)
-
-        # Calculate Customer Settlements
-        deliveries = MilkDelivery.objects.filter(
+        customer_ids = MilkDelivery.objects.filter(
             ethiopian_year=period.ethiopian_year,
             ethiopian_month=period.ethiopian_month,
-        )
-        if period.period_number == 1:
-            deliveries = deliveries.filter(ethiopian_day__lte=15)
-        else:
-            deliveries = deliveries.filter(ethiopian_day__gt=15)
+        ).values_list('customer_id', flat=True).distinct()
+        for customer_id in customer_ids:
+            refresh_customer_settlement(customer_id, period.ethiopian_year, period.ethiopian_month, anchor_day)
 
-        customer_totals = deliveries.values('customer').annotate(
-            tot_del=Sum('delivered_quantity'),
-            tot_ret=Sum('returned_quantity'),
-            tot_net=Sum('net_quantity'),
-            tot_amt=Sum(F('net_quantity') * F('price_per_liter'))
-        )
-
-        for ct in customer_totals:
-            CustomerSettlement.objects.update_or_create(
-                customer_id=ct['customer'],
-                settlement_period=period,
-                defaults={
-                    'total_delivered': ct['tot_del'],
-                    'total_returned': ct['tot_ret'],
-                    'net_quantity': ct['tot_net'],
-                    'gross_amount': ct['tot_amt'],
-                    'final_amount': ct['tot_amt'],
-                    'remaining_balance': ct['tot_amt']
-                }
-            )
-            
         period.status = SettlementPeriod.Status.CALCULATED
         period.save()
         
         return Response({'status': 'Settlements calculated successfully'})
+
+    @action(detail=True, methods=['post'], url_path='supplier-price')
+    def set_supplier_price(self, request, pk=None):
+        period = apply_period_supplier_price(self.get_object(), request.data.get('price'))
+        return Response(self.get_serializer(period).data)
 
 
 class SupplierSettlementViewSet(viewsets.ModelViewSet):
@@ -110,8 +58,25 @@ class SupplierSettlementViewSet(viewsets.ModelViewSet):
     serializer_class = SupplierSettlementSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        periods = SettlementPeriod.objects.all()
+        for period in periods:
+            refresh_period_from_records(period)
+        return super().get_queryset()
+
 
 class CustomerSettlementViewSet(viewsets.ModelViewSet):
     queryset = CustomerSettlement.objects.all()
     serializer_class = CustomerSettlementSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        periods = SettlementPeriod.objects.all()
+        for period in periods:
+            refresh_period_from_records(period)
+        return super().get_queryset()
+
+    @action(detail=True, methods=['post'], url_path='price')
+    def set_price(self, request, pk=None):
+        settlement = apply_customer_period_price(self.get_object(), request.data.get('price'))
+        return Response(self.get_serializer(settlement).data)

@@ -30,6 +30,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         today_delivered_customers = set(today_deliveries)
         
         deliveries = MilkDelivery.objects.filter(
+            customer__isnull=False,
             ethiopian_year=period.ethiopian_year,
             ethiopian_month=period.ethiopian_month,
         )

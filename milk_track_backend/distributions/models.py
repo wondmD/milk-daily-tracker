@@ -4,7 +4,8 @@ from customers.models import Customer
 from decimal import Decimal
 
 class MilkDelivery(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='deliveries')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='deliveries', null=True, blank=True)
+    buyer_name = models.CharField(max_length=255, blank=True, default='', help_text='Name for a one-time buyer who is not saved as a customer')
     ethiopian_date = models.CharField(max_length=20, help_text="e.g. Meskerem 5, 2017")
     ethiopian_year = models.IntegerField()
     ethiopian_month = models.IntegerField()
@@ -24,7 +25,8 @@ class MilkDelivery(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.customer.business_name} - {self.ethiopian_date} - Net: {self.net_quantity}L"
+        name = self.customer.business_name if self.customer_id else (self.buyer_name or 'Walk-in')
+        return f"{name} - {self.ethiopian_date} - Net: {self.net_quantity}L"
 
     class Meta:
         constraints = [
