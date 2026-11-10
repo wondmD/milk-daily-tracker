@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSuppliers, Supplier, updateSupplierStatus } from '@/services/suppliers';
-import { Plus, Search, Edit2, MapPin, Phone, Users, UserCheck, UserX } from 'lucide-react';
+import { getSystemSettings } from '@/services/settings';
+import { Plus, Search, Edit2, MapPin, Phone, Users, UserCheck, UserX, Info } from 'lucide-react';
 import SupplierModal from '@/components/features/suppliers/SupplierModal';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
@@ -37,6 +38,13 @@ export default function SuppliersPage() {
     queryKey: ['suppliers'],
     queryFn: getSuppliers,
   });
+
+  const { data: systemSettings } = useQuery({
+    queryKey: ['system-settings'],
+    queryFn: getSystemSettings,
+  });
+
+  const globalPrice = systemSettings?.default_supplier_milk_price;
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) => updateSupplierStatus(id, status),
@@ -89,6 +97,17 @@ export default function SuppliersPage() {
           </Button>
         }
       />
+
+      {/* Global price banner */}
+      {globalPrice !== undefined && (
+        <div className="flex items-center gap-3 bg-info-subtle/40 border border-info/20 rounded-[14px] px-4 py-3">
+          <Info className="h-4 w-4 text-info-hover flex-shrink-0" />
+          <p className="text-sm text-info-hover">
+            Global milk purchase price: <strong>{globalPrice} ETB / L</strong> — applied to all suppliers. Change it in{' '}
+            <a href="/settings" className="underline font-semibold hover:text-primary transition-colors">Settings</a>.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center flex-1 max-w-md bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border px-3 py-2">
@@ -157,7 +176,7 @@ export default function SuppliersPage() {
                     Contact
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                    Default Price
+                    Price (ETB/L)
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted">
                     Status
@@ -191,8 +210,11 @@ export default function SuppliersPage() {
                         {supplier.address ? (supplier.address.length > 20 ? supplier.address.substring(0, 20) + '...' : supplier.address) : 'No address'}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-foreground font-bold">
-                      {supplier.default_milk_price} ETB
+                    <td className="whitespace-nowrap px-3 py-4 text-sm">
+                      <span className="font-bold text-foreground">{globalPrice ?? supplier.default_milk_price}</span>
+                      {globalPrice && (
+                        <span className="ml-1.5 text-xs text-muted font-normal">ETB/L</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <StatusBadge 
@@ -256,7 +278,7 @@ export default function SuppliersPage() {
                 
                 <div className="grid grid-cols-2 gap-y-2 mt-4 text-sm">
                   <div className="text-muted">Price</div>
-                  <div className="font-bold text-foreground text-right">{supplier.default_milk_price} ETB</div>
+                  <div className="font-bold text-foreground text-right">{globalPrice ?? supplier.default_milk_price} ETB/L</div>
                   
                   <div className="text-muted">Phone</div>
                   <div className="text-foreground text-right font-medium">{supplier.phone_number || 'N/A'}</div>

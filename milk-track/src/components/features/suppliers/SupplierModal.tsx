@@ -2,13 +2,14 @@
 
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
 import FormInput from '@/components/ui/FormInput';
 import Button from '@/components/ui/Button';
 import { fetchApi } from '@/lib/api';
 import { showSuccess, showError } from '@/lib/toast';
-import { User, Phone, MapPin, DollarSign } from 'lucide-react';
+import { getSystemSettings } from '@/services/settings';
+import { User, Phone, MapPin, DollarSign, Info } from 'lucide-react';
 
 const SupplierSchema = Yup.object().shape({
   name: Yup.string().required('Supplier name is required'),
@@ -27,6 +28,12 @@ interface SupplierModalProps {
 export default function SupplierModal({ isOpen, onClose, supplier }: SupplierModalProps) {
   const queryClient = useQueryClient();
   const isEdit = Boolean(supplier);
+
+  const { data: systemSettings } = useQuery({
+    queryKey: ['system-settings'],
+    queryFn: getSystemSettings,
+    enabled: !isEdit, // Only fetch when adding a new supplier
+  });
 
   const mutation = useMutation({
     mutationFn: (values: any) => {
@@ -53,12 +60,14 @@ export default function SupplierModal({ isOpen, onClose, supplier }: SupplierMod
     }
   });
 
+  const globalPrice = systemSettings?.default_supplier_milk_price ?? '';
+
   const initialValues = supplier || {
     name: '',
     phone_number: '',
     address: '',
     supplier_type: 'INDIVIDUAL_FARMER',
-    default_milk_price: '',
+    default_milk_price: globalPrice,
     status: 'ACTIVE',
   };
 
@@ -131,6 +140,17 @@ export default function SupplierModal({ isOpen, onClose, supplier }: SupplierMod
                   placeholder="0.00"
                 />
               </div>
+
+              {/* Info note when adding new supplier */}
+              {!isEdit && globalPrice && (
+                <div className="flex items-start gap-2 bg-info-subtle/40 border border-info/20 rounded-[10px] px-3 py-2.5">
+                  <Info className="h-4 w-4 text-info-hover mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-info-hover">
+                    Price pre-filled from global Settings ({globalPrice} ETB/L). You can change it in <strong>Settings</strong> to update it for all suppliers.
+                  </p>
+                </div>
+              )}
+
               <FormInput 
                 name="address" 
                 label="Address / Location" 

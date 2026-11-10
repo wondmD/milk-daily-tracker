@@ -23,6 +23,8 @@ const OPERATIONAL_QUERY_KEYS = [
   'supplier_collections',
   'customer_deliveries',
   'supplier_advances',
+  'expenses',
+  'expenses-by-period',
 ] as const;
 
 export function invalidateOperationalData(queryClient: QueryClient) {

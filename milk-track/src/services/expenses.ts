@@ -18,8 +18,22 @@ export interface Expense {
   created_at?: string;
 }
 
+export interface ExpensePeriodGroup {
+  period_id: number | null;
+  period_name: string;
+  period_start: string | null;
+  period_end: string | null;
+  is_current: boolean;
+  total_amount: number;
+  expenses: Expense[];
+}
+
 export const getExpenses = async (): Promise<Expense[]> => {
   return fetchApi('/expenses/');
+};
+
+export const getExpensesByPeriod = async (): Promise<ExpensePeriodGroup[]> => {
+  return fetchApi('/expenses/by_period/');
 };
 
 export const createExpense = async (data: Expense): Promise<Expense> => {
@@ -28,3 +42,4 @@ export const createExpense = async (data: Expense): Promise<Expense> => {
     body: JSON.stringify(data),
   });
 };
+
