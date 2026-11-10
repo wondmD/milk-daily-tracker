@@ -340,3 +340,68 @@ class ConcurrentDeliveryTests(TransactionTestCase):
             ethiopian_year=2018, ethiopian_month=1, ethiopian_day=1,
         ).aggregate(total=Sum('quantity'))['total']
         self.assertGreaterEqual(balance, Decimal('0'))
+
+
+class InactivePartyRecordingTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='worker', password='pass')
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.supplier = Supplier.objects.create(
+            name='Abebe',
+            supplier_type=Supplier.SupplierType.INDIVIDUAL_FARMER,
+            default_milk_price=Decimal('50.00'),
+        )
+        self.customer = Customer.objects.create(
+            business_name='Cafe',
+            default_milk_price=Decimal('60.00'),
+        )
+        self.inactive_supplier = Supplier.objects.create(
+            name='Inactive Farm',
+            supplier_type=Supplier.SupplierType.DAIRY_FARM,
+            default_milk_price=Decimal('45.00'),
+            status=Supplier.Status.INACTIVE,
+        )
+        self.inactive_customer = Customer.objects.create(
+            business_name='Closed Shop',
+            default_milk_price=Decimal('70.00'),
+            status=Customer.Status.INACTIVE,
+        )
+
+    def test_inactive_supplier_cannot_receive_new_collections(self):
+        response = self.client.post(
+            '/api/milk-collections/',
+            collection_payload(self.inactive_supplier.id),
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+
+    def test_inactive_customer_cannot_receive_new_deliveries(self):
+        self.client.post('/api/milk-collections/', collection_payload(self.supplier.id), format='json')
+        response = self.client.post(
+            '/api/milk-deliveries/',
+            delivery_payload(self.inactive_customer.id),
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400, response.content)
+
+    def test_period_summaries_list_only_active_parties(self):
+        suppliers = self.client.get('/api/suppliers/current_period_summary/')
+        customers = self.client.get('/api/customers/current_period_summary/')
+        self.assertEqual(suppliers.status_code, 200, suppliers.content)
+        self.assertEqual(customers.status_code, 200, customers.content)
+        self.assertEqual([row['name'] for row in suppliers.data], ['Abebe'])
+        self.assertEqual([row['business_name'] for row in customers.data], ['Cafe'])
+
+    def test_existing_collection_for_deactivated_supplier_can_still_be_updated(self):
+        created = self.client.post('/api/milk-collections/', collection_payload(self.supplier.id), format='json')
+        self.assertEqual(created.status_code, 201, created.content)
+        self.supplier.status = Supplier.Status.INACTIVE
+        self.supplier.save()
+
+        updated = self.client.patch(
+            f'/api/milk-collections/{created.data["id"]}/',
+            {'morning_quantity': '90.00', 'admin_password': 'pass'},
+            format='json',
+        )
+        self.assertEqual(updated.status_code, 200, updated.content)

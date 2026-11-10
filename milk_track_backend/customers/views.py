@@ -17,7 +17,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         import datetime
 
         period = SettlementPeriod.ensure_current_period()
-        customers = self.get_queryset()
+        customers = self.get_queryset().filter(status=Customer.Status.ACTIVE)
         
         today = datetime.date.today()
         d = EthiopianDateConverter.date_to_ethiopian(today)

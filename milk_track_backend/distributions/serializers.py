@@ -15,6 +15,16 @@ class MilkDeliverySerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['net_quantity', 'created_at']
 
+    def validate_customer(self, customer):
+        if customer is None:
+            return customer
+        changing_customer = not self.instance or self.instance.customer_id != customer.id
+        if changing_customer and customer.status != Customer.Status.ACTIVE:
+            raise serializers.ValidationError(
+                'This customer is inactive. Activate them before recording a delivery.'
+            )
+        return customer
+
 class MilkReturnSerializer(serializers.ModelSerializer):
     customer_details = CustomerSerializer(source='customer', read_only=True)
 

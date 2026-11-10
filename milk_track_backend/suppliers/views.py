@@ -17,7 +17,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
         import datetime
         
         period = SettlementPeriod.ensure_current_period()
-        suppliers = self.get_queryset()
+        suppliers = self.get_queryset().filter(status=Supplier.Status.ACTIVE)
         
         today = datetime.date.today()
         d = EthiopianDateConverter.date_to_ethiopian(today)
