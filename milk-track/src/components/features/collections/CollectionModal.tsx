@@ -139,6 +139,8 @@ export default function CollectionModal({ isOpen, onClose, collection }: Collect
                 >
                   <option value="">{t('collectionModal', 'selectSupplier')}</option>
                   {suppliers.filter(s => {
+                    const isCurrentSupplier = isEdit && s.id === collection?.supplier;
+                    if (s.status !== 'ACTIVE' && !isCurrentSupplier) return false;
                     const hasRecordToday = collections.some(
                       (c: any) => c.ethiopian_date === values.ethiopian_date && c.supplier === s.id && (!isEdit || c.id !== collection?.id)
                     );

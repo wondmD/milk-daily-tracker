@@ -1,6 +1,6 @@
 'use client';
 
-import { Formik, Form } from 'formik';
+import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Modal from '@/components/ui/Modal';
@@ -44,6 +44,7 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customers_summary'] });
       showSuccess(isEdit ? 'Customer updated successfully!' : 'Customer added successfully!');
       onClose();
     },
@@ -60,6 +61,7 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
     location: '',
     address: '',
     default_milk_price: '',
+    status: 'ACTIVE',
   };
 
   return (
@@ -71,6 +73,7 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
     >
       <Formik
         initialValues={initialValues}
+        enableReinitialize
         validationSchema={CustomerSchema}
         onSubmit={(values, { setSubmitting }) => {
           mutation.mutate(values, {
@@ -120,6 +123,18 @@ export default function CustomerModal({ isOpen, onClose, customer }: CustomerMod
                 icon={<MapPin className="h-4 w-4" />}
                 placeholder="e.g. Bole"
               />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Status</label>
+                <Field
+                  as="select"
+                  name="status"
+                  className="block w-full rounded-[10px] border border-border focus:border-primary focus:ring-primary hover:border-muted pl-3 pr-8 py-2.5 text-sm shadow-sm transition-colors duration-200 outline-none"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </Field>
+                <p className="mt-1.5 text-xs text-muted">Inactive customers will not appear when recording deliveries.</p>
+              </div>
             </div>
 
             <div className="pt-4 flex justify-end gap-3">

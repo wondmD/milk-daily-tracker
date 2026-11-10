@@ -197,6 +197,8 @@ export default function DeliveryModal({ isOpen, onClose, delivery }: DeliveryMod
                 >
                   <option value="">{t('deliveryModal', 'selectCustomer')}</option>
                   {customers.filter(c => {
+                    const isCurrentCustomer = isEdit && c.id === delivery?.customer;
+                    if (c.status !== 'ACTIVE' && !isCurrentCustomer) return false;
                     const hasRecordToday = deliveries.some(
                       (d: any) => d.customer === c.id && (!isEdit || d.id !== delivery?.id) &&
                         `${d.ethiopian_year}-${String(d.ethiopian_month).padStart(2, '0')}-${String(d.ethiopian_day).padStart(2, '0')}` === values.ethiopian_date

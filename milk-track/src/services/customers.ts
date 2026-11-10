@@ -52,6 +52,13 @@ export const updateCustomer = async (id: number, data: Customer): Promise<Custom
   });
 };
 
+export const updateCustomerStatus = async (id: number, status: string): Promise<Customer> => {
+  return fetchApi(`/customers/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+};
+
 export const getCustomerCurrentPeriodSummary = async (): Promise<Customer[]> => {
   return fetchApi('/customers/current_period_summary/');
 };

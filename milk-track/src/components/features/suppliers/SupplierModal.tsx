@@ -43,6 +43,7 @@ export default function SupplierModal({ isOpen, onClose, supplier }: SupplierMod
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      queryClient.invalidateQueries({ queryKey: ['suppliers_summary'] });
       showSuccess(isEdit ? 'Supplier updated successfully!' : 'Supplier added successfully!');
       onClose();
     },
@@ -58,6 +59,7 @@ export default function SupplierModal({ isOpen, onClose, supplier }: SupplierMod
     address: '',
     supplier_type: 'INDIVIDUAL_FARMER',
     default_milk_price: '',
+    status: 'ACTIVE',
   };
 
   return (
@@ -69,6 +71,7 @@ export default function SupplierModal({ isOpen, onClose, supplier }: SupplierMod
     >
       <Formik
         initialValues={initialValues}
+        enableReinitialize
         validationSchema={SupplierSchema}
         onSubmit={(values, { setSubmitting }) => {
           mutation.mutate(values, {
@@ -134,6 +137,18 @@ export default function SupplierModal({ isOpen, onClose, supplier }: SupplierMod
                 icon={<MapPin className="h-4 w-4" />}
                 placeholder="City, Woreda, Kebele..."
               />
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Status</label>
+                <Field
+                  as="select"
+                  name="status"
+                  className="block w-full rounded-[10px] border border-border focus:border-primary focus:ring-primary hover:border-muted pl-3 pr-8 py-2.5 text-sm shadow-sm transition-colors duration-200 outline-none"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </Field>
+                <p className="mt-1.5 text-xs text-muted">Inactive suppliers will not appear when recording collections.</p>
+              </div>
             </div>
 
             <div className="pt-4 flex justify-end gap-3">

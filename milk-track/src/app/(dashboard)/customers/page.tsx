@@ -1,20 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getCustomers, Customer } from '@/services/customers';
-import { Plus, Search, Edit2, MapPin, Phone, Building2 } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCustomers, Customer, updateCustomerStatus } from '@/services/customers';
+import { Plus, Search, Edit2, MapPin, Phone, Building2, UserCheck, UserX } from 'lucide-react';
 import CustomerModal from '@/components/features/customers/CustomerModal';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import StatusBadge from '@/components/ui/StatusBadge';
 import PageHeader from '@/components/ui/PageHeader';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton';
+import { showError, showSuccess } from '@/lib/toast';
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 export default function CustomersPage() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined);
+  const [statusTarget, setStatusTarget] = useState<Customer | undefined>(undefined);
 
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -31,10 +38,42 @@ export default function CustomersPage() {
     queryFn: getCustomers,
   });
 
-  const filteredCustomers = customers.filter(c => 
-    c.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.contact_person && c.contact_person.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => updateCustomerStatus(id, status),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customers_summary'] });
+      showSuccess(variables.status === 'ACTIVE' ? 'Customer activated.' : 'Customer deactivated.');
+      setStatusTarget(undefined);
+    },
+    onError: (error: Error) => {
+      showError(error.message || 'Failed to update customer status.');
+    },
+  });
+
+  const filteredCustomers = customers.filter(c => {
+    const matchesSearch =
+      c.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.contact_person && c.contact_person.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const requestStatusChange = (customer: Customer) => {
+    if (customer.status === 'ACTIVE') {
+      setStatusTarget(customer);
+      return;
+    }
+    if (customer.id) {
+      statusMutation.mutate({ id: customer.id, status: 'ACTIVE' });
+    }
+  };
+
+  const confirmDeactivate = () => {
+    if (statusTarget?.id) {
+      statusMutation.mutate({ id: statusTarget.id, status: 'INACTIVE' });
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -51,15 +90,31 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="flex items-center max-w-md bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border px-3 py-2">
-        <Search className="h-5 w-5 text-muted" />
-        <input
-          type="text"
-          placeholder="Search customers..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full border-0 py-1 pl-3 text-foreground placeholder:text-muted focus:ring-0 sm:text-sm outline-none bg-transparent"
-        />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center flex-1 max-w-md bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border px-3 py-2">
+          <Search className="h-5 w-5 text-muted" />
+          <input
+            type="text"
+            placeholder="Search customers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full border-0 py-1 pl-3 text-foreground placeholder:text-muted focus:ring-0 sm:text-sm outline-none bg-transparent"
+          />
+        </div>
+        <div className="flex bg-surface border border-border rounded-[14px] p-1">
+          {(['ALL', 'ACTIVE', 'INACTIVE'] as StatusFilter[]).map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setStatusFilter(filter)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-[10px] transition-colors ${
+                statusFilter === filter ? 'bg-primary text-white' : 'text-muted hover:text-foreground'
+              }`}
+            >
+              {filter === 'ALL' ? 'All' : filter === 'ACTIVE' ? 'Active' : 'Inactive'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -81,7 +136,7 @@ export default function CustomersPage() {
         <EmptyState 
           icon={<Building2 />}
           title="No customers found"
-          description={searchTerm ? "Try adjusting your search query." : "You haven't added any customers yet."}
+          description={searchTerm || statusFilter !== 'ALL' ? "Try adjusting your search or status filter." : "You haven't added any customers yet."}
           action={!searchTerm ? (
             <Button onClick={() => setIsModalOpen(true)} leftIcon={<Plus className="h-4 w-4" />}>
               Add Your First Customer
@@ -114,7 +169,7 @@ export default function CustomersPage() {
               </thead>
               <tbody className="divide-y divide-border bg-surface">
                 {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-surface-secondary transition-colors">
+                  <tr key={customer.id} className={`hover:bg-surface-secondary transition-colors ${customer.status !== 'ACTIVE' ? 'opacity-70' : ''}`}>
                     <td className="whitespace-nowrap py-4 pl-6 pr-3">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0 rounded-full bg-primary-light/30 flex items-center justify-center text-primary font-bold border border-primary-light/50">
@@ -146,6 +201,16 @@ export default function CustomersPage() {
                       />
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
+                      <button
+                        onClick={() => requestStatusChange(customer)}
+                        className="text-muted hover:text-primary transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]"
+                        title={customer.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                      >
+                        {customer.status === 'ACTIVE' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                        <span className="sr-only">
+                          {customer.status === 'ACTIVE' ? 'Deactivate' : 'Activate'} {customer.business_name}
+                        </span>
+                      </button>
                       <button 
                         onClick={() => handleEdit(customer)}
                         className="text-muted hover:text-primary transition-colors p-2 hover:bg-primary-light/10 rounded-[10px]"
@@ -163,13 +228,22 @@ export default function CustomersPage() {
           {/* Mobile List View */}
           <div className="sm:hidden flex flex-col gap-4">
             {filteredCustomers.map((customer) => (
-              <div key={customer.id} className="bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border p-4 relative">
-                <button 
-                  onClick={() => handleEdit(customer)}
-                  className="absolute top-4 right-4 p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </button>
+              <div key={customer.id} className={`bg-surface rounded-[14px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] border border-border p-4 relative ${customer.status !== 'ACTIVE' ? 'opacity-70' : ''}`}>
+                <div className="absolute top-4 right-4 flex">
+                  <button
+                    onClick={() => requestStatusChange(customer)}
+                    className="p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors"
+                    title={customer.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                  >
+                    {customer.status === 'ACTIVE' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                  </button>
+                  <button 
+                    onClick={() => handleEdit(customer)}
+                    className="p-2 text-muted hover:text-primary hover:bg-primary-light/10 rounded-[10px] transition-colors"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                </div>
                 <div className="flex items-center mb-3">
                   <div className="h-10 w-10 flex-shrink-0 rounded-full bg-primary-light/30 flex items-center justify-center text-primary font-bold border border-primary-light/50 mr-3">
                     <Building2 className="h-5 w-5" />
@@ -205,6 +279,15 @@ export default function CustomersPage() {
         isOpen={isModalOpen} 
         onClose={handleCloseModal} 
         customer={selectedCustomer}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(statusTarget)}
+        onClose={() => setStatusTarget(undefined)}
+        onConfirm={confirmDeactivate}
+        title="Deactivate customer?"
+        message={`${statusTarget?.business_name || 'This customer'} will no longer appear when recording deliveries. Past records stay in history.`}
+        confirmText="Deactivate"
+        isLoading={statusMutation.isPending}
       />
     </div>
   );

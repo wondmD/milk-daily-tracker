@@ -56,6 +56,13 @@ export const updateSupplier = async (id: number, data: Supplier): Promise<Suppli
   });
 };
 
+export const updateSupplierStatus = async (id: number, status: string): Promise<Supplier> => {
+  return fetchApi(`/suppliers/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+};
+
 export const getSupplierCurrentPeriodSummary = async (): Promise<Supplier[]> => {
   return fetchApi('/suppliers/current_period_summary/');
 };
